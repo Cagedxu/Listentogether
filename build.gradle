@@ -1,0 +1,176 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '6.0.54'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+// 强制 javac 使用 UTF-8 读取源文件
+// Windows 默认 GBK，若源码含中文/特殊符号会编译期损坏导致聊天乱码
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+repositories {
+    mavenCentral()
+}
+
+// 音频解码库配置 - 构建时合并进主 jar（而非 JarJar 嵌套）
+// 原因: mp3spi 与 vorbisspi 共享 javazoom.spi 包，作为两个独立 JiJ 模块
+// 加载时会触发 JPMS split package 冲突 (ResolutionException)，
+// 合并进主 jar 后所有类属于同一模块，冲突消除。
+configurations {
+    audioLibs
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // 音频解码库 - 支持 MP3, OGG Vorbis, WAV, AIFF, AU 等格式
+    // 传递依赖 jlayer (MP3解码) 和 jorbis (Vorbis解码) 会一并引入
+    audioLibs("com.googlecode.soundlibs:tritonus-share:0.3.7.4") {
+        exclude group: 'junit', module: 'junit'
+    }
+    audioLibs("com.googlecode.soundlibs:mp3spi:1.9.5.4") {
+        exclude group: 'junit', module: 'junit'
+    }
+    audioLibs("com.googlecode.soundlibs:vorbisspi:1.0.3.3") {
+        exclude group: 'junit', module: 'junit'
+    }
+    // FLAC 无损音频解码 - 含 Java Sound SPI (FlacAudioFileReader/FlacFormatConversionProvider)
+    audioLibs("org.jflac:jflac-codec:1.5.2") {
+        exclude group: 'junit', module: 'junit'
+    }
+    // AAC/M4A 解码 - JAAD 纯 Java AAC 解码器 + MP4 解复用器
+    // 仅提供 AudioFileReader SPI (AACAudioFileReader)，直接返回 PCM 解码流，无需 FormatConversionProvider
+    audioLibs("com.tianscar.javasound:jaad:0.9.4")
+
+    // 编译时也需要音频库类（自定义 AACFileReader 直接引用 jaad 核心类）
+    implementation("com.googlecode.soundlibs:tritonus-share:0.3.7.4") { exclude group: 'junit', module: 'junit' }
+    implementation("com.googlecode.soundlibs:mp3spi:1.9.5.4") { exclude group: 'junit', module: 'junit' }
+    implementation("com.googlecode.soundlibs:vorbisspi:1.0.3.3") { exclude group: 'junit', module: 'junit' }
+    implementation("org.jflac:jflac-codec:1.5.2") { exclude group: 'junit', module: 'junit' }
+    implementation("com.tianscar.javasound:jaad:0.9.4")
+}
+
+// 生成合并后的 Java Sound SPI 服务注册文件
+// mp3spi 和 vorbisspi 各有自己的 META-INF/services 文件（同名），
+// 直接解包会互相覆盖，必须手动合并内容
+def mergedServicesDir = layout.buildDirectory.dir('merged-services')
+
+tasks.register('generateMergedServices') {
+    outputs.dir(mergedServicesDir)
+    doLast {
+        def svcDir = new File(mergedServicesDir.get().asFile, 'META-INF/services')
+        svcDir.mkdirs()
+        new File(svcDir, 'javax.sound.sampled.spi.AudioFileReader').text = '''\
+            com.musicmod.audio.AACFileReader
+            javazoom.spi.mpeg.sampled.file.MpegAudioFileReader
+            javazoom.spi.vorbis.sampled.file.VorbisAudioFileReader
+            org.jflac.sound.spi.FlacAudioFileReader
+            '''.stripIndent()
+        new File(svcDir, 'javax.sound.sampled.spi.FormatConversionProvider').text = '''\
+            javazoom.spi.mpeg.sampled.convert.MpegFormatConversionProvider
+            javazoom.spi.vorbis.sampled.convert.VorbisFormatConversionProvider
+            org.jflac.sound.spi.FlacFormatConversionProvider
+            '''.stripIndent()
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version       : forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors         : mod_authors, mod_description: mod_description,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    dependsOn generateMergedServices
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // 将音频解码库的类文件合并进主 jar
+    // 排除: 各库的 services 文件(由 generateMergedServices 合并提供)、
+    //       签名文件、MANIFEST、module-info(避免与主 jar 冲突)
+    from(configurations.audioLibs.collect { zipTree(it) }) {
+        exclude 'META-INF/services/**'
+        exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'module-info.class'
+        // 排除 jaad 的 AACAudioFileReader SPI，防止它误判 MP3 且不支持 fMP4
+        exclude 'net/sourceforge/jaad/spi/javasound/AACAudioFileReader.class'
+        exclude 'net/sourceforge/jaad/spi/javasound/AACAudioFileFormatType.class'
+        exclude 'net/sourceforge/jaad/spi/javasound/AACAudioInputStream.class'
+        exclude 'net/sourceforge/jaad/spi/javasound/AsynchronousAudioInputStream.class'
+        exclude 'net/sourceforge/jaad/spi/javasound/CircularBuffer*.class'
+        exclude 'net/sourceforge/jaad/spi/javasound/MP4AudioInputStream.class'
+    }
+    // 合并后的 SPI 服务注册文件
+    from(mergedServicesDir)
+
+    // 许可证与第三方声明（Modrinth / LGPL 合规）
+    from('LICENSE')
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSES') {
+        into 'META-INF/licenses'
+    }
+
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
