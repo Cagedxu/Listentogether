@@ -1,5 +1,7 @@
 package com.musicmod.command;
 
+import com.musicmod.i18n.Lang;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -194,14 +196,14 @@ public class MusicCommand {
         CommandSourceStack source = context.getSource();
         MusicLibrary library = MusicServerManager.getInstance().getMusicLibrary();
         if (library == null) {
-            source.sendFailure(Component.literal("§c音乐库未初始化"));
+            source.sendFailure(Component.literal(Lang.tr("§c音乐库未初始化")));
             return 0;
         }
         library.scan();
         List<String> songs = library.getSongNames();
         if (songs.isEmpty()) {
             source.sendSuccess(() -> Component.literal(
-                    "§e音乐文件夹中没有歌曲。请将音乐文件放入: §f" +
+                    Lang.tr("§e音乐文件夹中没有歌曲。请将音乐文件放入: §f") +
                     library.getSongsDir().getAbsolutePath()), false);
             return 0;
         }
@@ -216,14 +218,14 @@ public class MusicCommand {
         final int finalPage = page;
         final int finalTotalPages = totalPages;
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §e歌曲列表 §7(" + songs.size() + "首) §f- 第" + finalPage + "/" + finalTotalPages + "页"), false);
+                Lang.tr("§6♪ §e歌曲列表 §7(") + songs.size() + Lang.tr("首) §f- 第") + finalPage + "/" + finalTotalPages + Lang.tr("页")), false);
         for (int i = start; i < end; i++) {
             String song = songs.get(i);
             String displayTitle = library.getTags(song).getDisplayTitle();
             String prefix = "§7" + String.format("%2d. ", i + 1);
             String current = MusicServerManager.getInstance().getCurrentSong();
             if (song.equals(current)) {
-                source.sendSuccess(() -> Component.literal(prefix + "§a§l" + displayTitle + " §r§a♪ 正在播放"), false);
+                source.sendSuccess(() -> Component.literal(prefix + "§a§l" + displayTitle + Lang.tr(" §r§a♪ 正在播放")), false);
             } else {
                 final String title = displayTitle;
                 source.sendSuccess(() -> Component.literal(prefix + "§f" + title), false);
@@ -231,7 +233,7 @@ public class MusicCommand {
         }
         if (finalPage < finalTotalPages) {
             source.sendSuccess(() -> Component.literal(
-                    "§7输入 /music list " + (finalPage + 1) + " 查看下一页"), false);
+                    Lang.tr("§7输入 /music list ") + (finalPage + 1) + Lang.tr(" 查看下一页")), false);
         }
         return songs.size();
     }
@@ -244,8 +246,8 @@ public class MusicCommand {
         String songQuery = StringArgumentType.getString(context, "song").trim();
         boolean success = MusicServerManager.getInstance().playMusic(songQuery);
         if (!success) {
-            source.sendFailure(Component.literal("§c未找到歌曲: §f" + songQuery +
-                    "§c。使用 /music list 查看可用歌曲。"));
+            source.sendFailure(Component.literal(Lang.tr("§c未找到歌曲: §f") + songQuery +
+                    Lang.tr("§c。使用 /music list 查看可用歌曲。")));
             return 0;
         }
         return 1;
@@ -257,7 +259,7 @@ public class MusicCommand {
     private static int stopMusic(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         if (!MusicServerManager.getInstance().isPlaying()) {
-            source.sendFailure(Component.literal("§c当前没有正在播放的歌曲"));
+            source.sendFailure(Component.literal(Lang.tr("§c当前没有正在播放的歌曲")));
             return 0;
         }
         MusicServerManager.getInstance().stopMusic();
@@ -270,7 +272,7 @@ public class MusicCommand {
     private static int togglePause(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         if (!MusicServerManager.getInstance().togglePause()) {
-            source.sendFailure(Component.literal("§c当前没有正在播放的歌曲"));
+            source.sendFailure(Component.literal(Lang.tr("§c当前没有正在播放的歌曲")));
             return 0;
         }
         return 1;
@@ -282,7 +284,7 @@ public class MusicCommand {
     private static int playNext(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         if (!MusicServerManager.getInstance().playNext()) {
-            source.sendFailure(Component.literal("§c播放队列为空，无法切换下一首"));
+            source.sendFailure(Component.literal(Lang.tr("§c播放队列为空，无法切换下一首")));
             return 0;
         }
         return 1;
@@ -294,7 +296,7 @@ public class MusicCommand {
     private static int playPrev(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         if (!MusicServerManager.getInstance().playPrevious()) {
-            source.sendFailure(Component.literal("§c播放队列为空，无法切换上一首"));
+            source.sendFailure(Component.literal(Lang.tr("§c播放队列为空，无法切换上一首")));
             return 0;
         }
         return 1;
@@ -308,7 +310,7 @@ public class MusicCommand {
         MusicServerManager mgr = MusicServerManager.getInstance();
         com.musicmod.PlayMode mode = mgr.cyclePlayMode();
         source.sendSuccess(() -> Component.literal(
-                "§6♪ 播放模式: " + mode.getSymbol() + " §a" + mode.getDisplayName()), true);
+                Lang.tr("§6♪ 播放模式: ") + mode.getSymbol() + " §a" + mode.getDisplayName()), true);
         return 1;
     }
 
@@ -320,12 +322,12 @@ public class MusicCommand {
         MusicServerManager mgr = MusicServerManager.getInstance();
         List<String> queue = mgr.getQueue();
         if (queue.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("§7播放队列为空。播放任意歌曲会自动加入队列。"), false);
+            source.sendSuccess(() -> Component.literal(Lang.tr("§7播放队列为空。播放任意歌曲会自动加入队列。")), false);
             return 0;
         }
         com.musicmod.PlayMode pm = mgr.getPlayMode();
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §e播放队列 §7(" + queue.size() + "首) §a[" + pm.getSymbol() + " " + pm.getDisplayName() + "]"), false);
+                Lang.tr("§6♪ §e播放队列 §7(") + queue.size() + Lang.tr("首) §a[") + pm.getSymbol() + " " + pm.getDisplayName() + "]"), false);
         MusicLibrary lib = mgr.getMusicLibrary();
         for (int i = 0; i < queue.size() && i < 20; i++) {
             String song = queue.get(i);
@@ -339,7 +341,7 @@ public class MusicCommand {
             }
         }
         if (queue.size() > 20) {
-            source.sendSuccess(() -> Component.literal("§7... 还有 " + (queue.size() - 20) + " 首"), false);
+            source.sendSuccess(() -> Component.literal(Lang.tr("§7... 还有 ") + (queue.size() - 20) + Lang.tr(" 首")), false);
         }
         return queue.size();
     }
@@ -357,28 +359,28 @@ public class MusicCommand {
         CommandSourceStack source = context.getSource();
         PlaylistLibrary library = MusicServerManager.getInstance().getPlaylistLibrary();
         if (library == null) {
-            source.sendFailure(Component.literal("§c歌单系统未初始化"));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单系统未初始化")));
             return 0;
         }
         List<Playlist> playlists = library.getAll();
         if (playlists.isEmpty()) {
             source.sendSuccess(() -> Component.literal(
-                    "§7还没有任何歌单。" + (source.hasPermission(2)
-                            ? "使用 §f/music playlist create <歌单名> §7创建。" : "")), false);
+                    Lang.tr("§7还没有任何歌单。") + (source.hasPermission(2)
+                            ? Lang.tr("使用 §f/music playlist create <歌单名> §7创建。") : "")), false);
             return 0;
         }
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §e服务器歌单 §7(" + playlists.size() + " 个)"), false);
+                Lang.tr("§6♪ §e服务器歌单 §7(") + playlists.size() + Lang.tr(" 个)")), false);
         for (int i = 0; i < playlists.size(); i++) {
             Playlist playlist = playlists.get(i);
             String prefix = "§7" + String.format("%2d. ", i + 1);
             source.sendSuccess(() -> Component.literal(
                     prefix + "§f" + playlist.getName()
-                            + " §8- §7" + playlist.size() + " 首"), false);
+                            + " §8- §7" + playlist.size() + Lang.tr(" 首")), false);
         }
         source.sendSuccess(() -> Component.literal(
-                "§7使用 §f/music playlist show <歌单名> §7查看内容；"
-                        + "§f/music playlist play <歌单名> §7播放（OP）"), false);
+                Lang.tr("§7使用 §f/music playlist show <歌单名> §7查看内容；")
+                        + Lang.tr("§f/music playlist play <歌单名> §7播放（OP）")), false);
         return playlists.size();
     }
 
@@ -388,18 +390,18 @@ public class MusicCommand {
         String name = StringArgumentType.getString(context, "name").trim();
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name
-                    + "§c。使用 /music playlist list 查看所有歌单。"));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name
+                    + Lang.tr("§c。使用 /music playlist list 查看所有歌单。")));
             return 0;
         }
         MusicLibrary library = MusicServerManager.getInstance().getMusicLibrary();
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §e歌单: §f" + playlist.getName()
-                        + " §7(" + playlist.size() + " 首)"), false);
+                Lang.tr("§6♪ §e歌单: §f") + playlist.getName()
+                        + " §7(" + playlist.size() + Lang.tr(" 首)")), false);
         if (playlist.isEmpty()) {
             source.sendSuccess(() -> Component.literal(
-                    "§7歌单还是空的。" + (source.hasPermission(2)
-                            ? "使用 §f/music playlist add \"" + playlist.getName() + "\" <歌曲> §7添加。"
+                    Lang.tr("§7歌单还是空的。") + (source.hasPermission(2)
+                            ? Lang.tr("使用 §f/music playlist add \"") + playlist.getName() + Lang.tr("\" <歌曲> §7添加。")
                             : "")), false);
             return 0;
         }
@@ -408,14 +410,14 @@ public class MusicCommand {
             String song = playlist.getSongs().get(i);
             boolean exists = library != null && library.getSongMap().containsKey(song);
             String title = exists ? library.getTags(song).getDisplayTitle() : song;
-            String suffix = exists ? "" : " §c(文件缺失)";
+            String suffix = exists ? "" : Lang.tr(" §c(文件缺失)");
             String prefix = "§7" + String.format("%2d. ", i + 1);
             source.sendSuccess(() -> Component.literal(
                     prefix + "§f" + title + suffix), false);
         }
         if (playlist.size() > limit) {
             source.sendSuccess(() -> Component.literal(
-                    "§7... 还有 " + (playlist.size() - limit) + " 首"), false);
+                    Lang.tr("§7... 还有 ") + (playlist.size() - limit) + Lang.tr(" 首")), false);
         }
         return playlist.size();
     }
@@ -431,7 +433,7 @@ public class MusicCommand {
         }
         String clean = PlaylistLibrary.sanitizeName(name);
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a歌单已创建: §f" + clean), true);
+                Lang.tr("§6♪ §a歌单已创建: §f") + clean), true);
         return 1;
     }
 
@@ -442,7 +444,7 @@ public class MusicCommand {
         String newName = StringArgumentType.getString(context, "newName");
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name));
             return 0;
         }
         String error = MusicServerManager.getInstance().renamePlaylist(playlist.getId(), newName);
@@ -452,7 +454,7 @@ public class MusicCommand {
         }
         String clean = PlaylistLibrary.sanitizeName(newName);
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a歌单已重命名为: §f" + clean), true);
+                Lang.tr("§6♪ §a歌单已重命名为: §f") + clean), true);
         return 1;
     }
 
@@ -462,7 +464,7 @@ public class MusicCommand {
         String name = StringArgumentType.getString(context, "name").trim();
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name));
             return 0;
         }
         String error = MusicServerManager.getInstance().deletePlaylist(playlist.getId());
@@ -471,7 +473,7 @@ public class MusicCommand {
             return 0;
         }
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a歌单已删除: §f" + playlist.getName()), true);
+                Lang.tr("§6♪ §a歌单已删除: §f") + playlist.getName()), true);
         return 1;
     }
 
@@ -482,7 +484,7 @@ public class MusicCommand {
         String song = StringArgumentType.getString(context, "song").trim();
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name));
             return 0;
         }
         String error = MusicServerManager.getInstance()
@@ -492,7 +494,7 @@ public class MusicCommand {
             return 0;
         }
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a已添加到歌单「§f" + playlist.getName() + "§a」: §f" + song), true);
+                Lang.tr("§6♪ §a已添加到歌单「§f") + playlist.getName() + "§a」: §f" + song), true);
         return 1;
     }
 
@@ -503,7 +505,7 @@ public class MusicCommand {
         String song = StringArgumentType.getString(context, "song").trim();
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name));
             return 0;
         }
         String error = MusicServerManager.getInstance()
@@ -513,7 +515,7 @@ public class MusicCommand {
             return 0;
         }
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a已从歌单「§f" + playlist.getName() + "§a」移除: §f" + song), true);
+                Lang.tr("§6♪ §a已从歌单「§f") + playlist.getName() + Lang.tr("§a」移除: §f") + song), true);
         return 1;
     }
 
@@ -523,7 +525,7 @@ public class MusicCommand {
         String name = StringArgumentType.getString(context, "name").trim();
         Playlist playlist = findPlaylist(name);
         if (playlist == null) {
-            source.sendFailure(Component.literal("§c歌单不存在: §f" + name));
+            source.sendFailure(Component.literal(Lang.tr("§c歌单不存在: §f") + name));
             return 0;
         }
         String error = MusicServerManager.getInstance().playPlaylist(playlist.getId(), "");
@@ -545,7 +547,7 @@ public class MusicCommand {
         MusicLibrary library = MusicServerManager.getInstance().getMusicLibrary();
         int count = library != null ? library.getSongCount() : 0;
         source.sendSuccess(() -> Component.literal(
-                "§6♪ §a重新扫描完成，共找到 §f" + count + " §a首歌曲"), true);
+                Lang.tr("§6♪ §a重新扫描完成，共找到 §f") + count + Lang.tr(" §a首歌曲")), true);
         return count;
     }
 
@@ -556,12 +558,12 @@ public class MusicCommand {
         CommandSourceStack source = context.getSource();
         MusicServerManager mgr = MusicServerManager.getInstance();
         if (!mgr.isPlaying()) {
-            source.sendSuccess(() -> Component.literal("§7当前没有正在播放的歌曲"), false);
+            source.sendSuccess(() -> Component.literal(Lang.tr("§7当前没有正在播放的歌曲")), false);
             return 0;
         }
         String song = mgr.getCurrentSong();
         long elapsed = mgr.getElapsedMs();
-        String status = mgr.isPaused() ? "§e[已暂停]" : "§a[播放中]";
+        String status = mgr.isPaused() ? Lang.tr("§e[已暂停]") : Lang.tr("§a[播放中]");
         String posStr = formatTime(elapsed);
         MusicLibrary lib = mgr.getMusicLibrary();
         String displayTitle = lib != null ? lib.getTags(song).getDisplayTitle() : song;
@@ -581,7 +583,7 @@ public class MusicCommand {
             NetworkHandler.sendToPlayer(new S2CSetVolumePacket(level), player);
         } else {
             source.sendSuccess(() -> Component.literal(
-                    "§6♪ §e个人音量已设置为: §f" + level + "%"), false);
+                    Lang.tr("§6♪ §e个人音量已设置为: §f") + level + "%"), false);
         }
         return 1;
     }
@@ -591,23 +593,23 @@ public class MusicCommand {
      */
     private static int showHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        source.sendSuccess(() -> Component.literal("§6===== §e一起听 §6====="), false);
-        source.sendSuccess(() -> Component.literal("§e按 F8 键打开播放器界面 §7(可在控制设置中改键)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music list [页] §7- 查看歌曲列表"), false);
-        source.sendSuccess(() -> Component.literal("§f/music np §7- 查看当前播放"), false);
-        source.sendSuccess(() -> Component.literal("§f/music volume <0-100> §7- 设置个人音量"), false);
-        source.sendSuccess(() -> Component.literal("§f/music playlist §7- 查看歌单 / §f/music playlist show <歌单>"), false);
-        source.sendSuccess(() -> Component.literal("§f/music play <歌名> §7- 播放歌曲 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music stop §7- 停止播放 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music pause §7- 暂停/恢复 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music next §7- 下一首 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music prev §7- 上一首 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music mode §7- 切换播放模式 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music queue §7- 查看队列 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music playlist play <歌单> §7- 播放歌单 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music playlist create/delete <歌单> §7- 新建/删除歌单 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music playlist add/remove <歌单> <歌曲> §7- 增删歌曲 §8(OP)"), false);
-        source.sendSuccess(() -> Component.literal("§f/music rescan §7- 重新扫描 §8(OP)"), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§6===== §e一起听 §6=====")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§e按 F8 键打开播放器界面 §7(可在控制设置中改键)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music list [页] §7- 查看歌曲列表")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music np §7- 查看当前播放")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music volume <0-100> §7- 设置个人音量")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music playlist §7- 查看歌单 / §f/music playlist show <歌单>")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music play <歌名> §7- 播放歌曲 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music stop §7- 停止播放 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music pause §7- 暂停/恢复 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music next §7- 下一首 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music prev §7- 上一首 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music mode §7- 切换播放模式 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music queue §7- 查看队列 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music playlist play <歌单> §7- 播放歌单 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music playlist create/delete <歌单> §7- 新建/删除歌单 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music playlist add/remove <歌单> <歌曲> §7- 增删歌曲 §8(OP)")), false);
+        source.sendSuccess(() -> Component.literal(Lang.tr("§f/music rescan §7- 重新扫描 §8(OP)")), false);
         return 1;
     }
 

@@ -1,5 +1,7 @@
 package com.musicmod.client.gui;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.client.ClientMusicManager;
 import com.musicmod.config.MusicModConfig;
 import com.musicmod.network.NetworkHandler;
@@ -22,7 +24,7 @@ import java.io.File;
  * 一起听配置界面（0.25.2：同步播放器风格设置页所有配置选项）。
  * <p>
  * 通过 Forge {@code ConfigScreenHandler.ConfigScreenFactory} 注册，
- * 可从模组列表的"配置"按钮打开，也可从经典风格播放器界面进入。
+ * 可从模组列表的Lang.tr("配置")按钮打开，也可从经典风格播放器界面进入。
  * <p>
  * 客户端配置随时可改；单人游戏配置（歌曲目录、播放模式等）在本地修改，
  * 多人游戏中服务器配置由服主在服务端文件中编辑（上传/无人行为除外）。
@@ -57,7 +59,7 @@ public class MusicModConfigScreen extends Screen {
     private int scrollOffset = 0;
 
     public MusicModConfigScreen(Screen parentScreen) {
-        super(Component.literal("一起听 · 配置"));
+        super(Component.literal(Lang.tr("一起听 · 配置")));
         this.parentScreen = parentScreen;
     }
 
@@ -178,13 +180,13 @@ public class MusicModConfigScreen extends Screen {
         // ---- 服务器配置 ----
         if (singleplayer) {
             songsDirBox = new EditBox(this.font, leftX, 0, BTN_W, BTN_H,
-                    Component.literal("歌曲目录"));
+                    Component.literal(Lang.tr("歌曲目录")));
             songsDirBox.setMaxLength(256);
             songsDirBox.setValue(MusicModConfig.getServerSongsDir());
             this.addRenderableWidget(songsDirBox);
 
             applyDirBtn = Button.builder(
-                    Component.literal("应用目录并重新扫描"), btn -> {
+                    Component.literal(Lang.tr("应用目录并重新扫描")), btn -> {
                         String dir = songsDirBox.getValue().trim();
                         if (!dir.isEmpty()) {
                             MusicModConfig.setServerSongsDir(dir);
@@ -194,7 +196,7 @@ public class MusicModConfigScreen extends Screen {
                     }).bounds(leftX, 0, BTN_W - 84, BTN_H).build();
             this.addRenderableWidget(applyDirBtn);
 
-            openSongsDirBtn = Button.builder(Component.literal("§b📂 打开"), btn -> {
+            openSongsDirBtn = Button.builder(Component.literal(Lang.tr("§b📂 打开")), btn -> {
                 openFolder(resolveSongsDir());
             }).bounds(leftX + BTN_W - 80, 0, 80, BTN_H).build();
             this.addRenderableWidget(openSongsDirBtn);
@@ -208,12 +210,12 @@ public class MusicModConfigScreen extends Screen {
             }).bounds(leftX, 0, BTN_W, BTN_H).build();
             this.addRenderableWidget(playModeBtn);
         } else {
-            openCacheDirBtn = Button.builder(Component.literal("§b📂 打开缓存歌曲文件夹"), btn -> {
+            openCacheDirBtn = Button.builder(Component.literal(Lang.tr("§b📂 打开缓存歌曲文件夹")), btn -> {
                 openFolder(new File(Minecraft.getInstance().gameDirectory, "musicmod_cache"));
             }).bounds(leftX, 0, BTN_W, BTN_H).build();
             this.addRenderableWidget(openCacheDirBtn);
 
-            uploadBtn = Button.builder(Component.literal("§a⬆ 上传音乐到服务器"), btn -> {
+            uploadBtn = Button.builder(Component.literal(Lang.tr("§a⬆ 上传音乐到服务器")), btn -> {
                 com.musicmod.client.ClientFileUploader.openUploadDialog();
             }).bounds(leftX, 0, BTN_W, BTN_H).build();
             this.addRenderableWidget(uploadBtn);
@@ -233,7 +235,7 @@ public class MusicModConfigScreen extends Screen {
         }
 
         // ---- 完成按钮（固定底部，不随滚动移动） ----
-        this.addRenderableWidget(Button.builder(Component.literal("完成"), btn -> onClose())
+        this.addRenderableWidget(Button.builder(Component.literal(Lang.tr("完成")), btn -> onClose())
                 .bounds(this.width / 2 - 75, this.height - 28, 150, BTN_H).build());
     }
 
@@ -295,15 +297,15 @@ public class MusicModConfigScreen extends Screen {
         // 客户端配置标签（baseY=0，控件从 LABEL_SPACE 开始，间距充足不重叠）
         int clientLabelY = CONTENT_TOP - scrollOffset;
         if (clientLabelY >= TITLE_Y + 10) {
-            guiGraphics.drawCenteredString(this.font, "§e—— 客户端配置 ——", cx, clientLabelY, 0xFFFFFF);
+            guiGraphics.drawCenteredString(this.font, Lang.tr("§e—— 客户端配置 ——"), cx, clientLabelY, 0xFFFFFF);
         }
 
         // 服务器配置标签（在服务器区控件上方 LABEL_SPACE 处）
         int serverLabelBaseY = LABEL_SPACE + 9 * ITEM_SPACING; // 客户端标签+9 个控件之后
         int serverLabelY = CONTENT_TOP + serverLabelBaseY - scrollOffset;
         if (serverLabelY >= TITLE_Y + 10 && serverLabelY < CONTENT_TOP + visibleHeight()) {
-            String text = singleplayer ? "§e—— 单人游戏配置 ——"
-                    : "§e—— 服务器配置 ——";
+            String text = singleplayer ? Lang.tr("§e—— 单人游戏配置 ——")
+                    : Lang.tr("§e—— 服务器配置 ——");
             guiGraphics.drawCenteredString(this.font, text, cx, serverLabelY, 0xFFFFFF);
         }
 
@@ -312,7 +314,7 @@ public class MusicModConfigScreen extends Screen {
             int hintY = CONTENT_TOP + serverLabelBaseY + LABEL_SPACE + 2 * ITEM_SPACING - scrollOffset;
             if (hintY >= TITLE_Y + 10 && hintY < CONTENT_TOP + visibleHeight()) {
                 guiGraphics.drawCenteredString(this.font,
-                        "§7服务器配置请在服务端 config/musicmod-server.toml 中编辑",
+                        Lang.tr("§7服务器配置请在服务端 config/musicmod-server.toml 中编辑"),
                         cx, hintY, 0xAAAAAA);
             }
         }
@@ -377,54 +379,54 @@ public class MusicModConfigScreen extends Screen {
     // ==================== 按钮文案 ====================
 
     private Component styleBtnText() {
-        return Component.literal("界面风格: " + (MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? "播放器风格" : "经典风格") + " §7(点击切换)");
+        return Component.literal(Lang.tr("界面风格: ") + (MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
+                ? Lang.tr("播放器风格") : Lang.tr("经典风格")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component hudBtnText() {
         MusicModConfig.HudMode mode = MusicModConfig.getHudMode();
-        String modeText = mode == MusicModConfig.HudMode.LYRICS ? "§b歌词"
-                : mode == MusicModConfig.HudMode.SONG_NAME ? "§a歌名"
-                : mode == MusicModConfig.HudMode.CARD ? "§d卡片" : "§c关闭";
-        return Component.literal("HUD 显示: " + modeText + " §7(点击切换)");
+        String modeText = mode == MusicModConfig.HudMode.LYRICS ? Lang.tr("§b歌词")
+                : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("§a歌名")
+                : mode == MusicModConfig.HudMode.CARD ? Lang.tr("§d卡片") : Lang.tr("§c关闭");
+        return Component.literal(Lang.tr("HUD 显示: ") + modeText + Lang.tr(" §7(点击切换)"));
     }
 
     private Component translationBtnText() {
-        return Component.literal("翻译歌词: " + (MusicModConfig.getShowTranslation() ? "§a显示" : "§7仅原文") + " §7(点击切换)");
+        return Component.literal(Lang.tr("翻译歌词: ") + (MusicModConfig.getShowTranslation() ? Lang.tr("§a显示") : Lang.tr("§7仅原文")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component noteIconBtnText() {
-        return Component.literal("音符图标: " + (MusicModConfig.getShowHudNoteIcon() ? "§a显示" : "§7隐藏") + " §7(点击切换)");
+        return Component.literal(Lang.tr("音符图标: ") + (MusicModConfig.getShowHudNoteIcon() ? Lang.tr("§a显示") : Lang.tr("§7隐藏")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component lyricsAlignBtnText() {
-        return Component.literal("歌词对齐: " + (MusicModConfig.getHudLyricsAlign() == MusicModConfig.HudLyricsAlign.CENTER
-                ? "居中" : "左对齐") + " §7(点击切换)");
+        return Component.literal(Lang.tr("歌词对齐: ") + (MusicModConfig.getHudLyricsAlign() == MusicModConfig.HudLyricsAlign.CENTER
+                ? Lang.tr("居中") : Lang.tr("左对齐")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component hudTransPosBtnText() {
-        return Component.literal("HUD 翻译位置: " + (MusicModConfig.getHudLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? "下方" : "后方") + " §7(点击切换)");
+        return Component.literal(Lang.tr("HUD 翻译位置: ") + (MusicModConfig.getHudLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
+                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component detailTransPosBtnText() {
-        return Component.literal("详情页翻译位置: " + (MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? "下方" : "后方") + " §7(点击切换)");
+        return Component.literal(Lang.tr("详情页翻译位置: ") + (MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
+                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component barTransPosBtnText() {
-        return Component.literal("进度条翻译位置: " + (MusicModConfig.getBarLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? "下方" : "后方") + " §7(点击切换)");
+        return Component.literal(Lang.tr("进度条翻译位置: ") + (MusicModConfig.getBarLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
+                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
     }
 
     private Component playModeBtnText() {
         com.musicmod.PlayMode pm = MusicModConfig.getServerDefaultPlayMode();
-        return Component.literal("播放模式: " + pm.getSymbol() + " " + pm.getDisplayName()
-                + " §7(点击切换)");
+        return Component.literal(Lang.tr("播放模式: ") + pm.getSymbol() + " " + pm.getDisplayName()
+                + Lang.tr(" §7(点击切换)"));
     }
 
     private Component emptyServerBtnText() {
-        return Component.literal("无人时: " + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName()
-                + " §7(点击切换)");
+        return Component.literal(Lang.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName()
+                + Lang.tr(" §7(点击切换)"));
     }
 }

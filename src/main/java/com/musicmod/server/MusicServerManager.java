@@ -1,5 +1,7 @@
 package com.musicmod.server;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.MusicMod;
 import com.musicmod.PlayMode;
 import com.musicmod.audio.MusicLibrary;
@@ -193,7 +195,7 @@ public class MusicServerManager {
 
         // 通知所有玩家（聊天栏消息，显示标签标题）
         SongTags tags = musicLibrary.getTags(songName);
-        broadcastMessage("§6♪ §e正在播放: §f" + tags.getDisplayTitle());
+        broadcastMessage(Lang.tr("§6♪ §e正在播放: §f") + tags.getDisplayTitle());
         return true;
     }
 
@@ -239,7 +241,7 @@ public class MusicServerManager {
         pausedAtMs = 0;
 
         NetworkHandler.sendToAllPlayers(new S2CStopPacket());
-        broadcastMessage("§6♪ §7播放已停止");
+        broadcastMessage(Lang.tr("§6♪ §7播放已停止"));
     }
 
     /**
@@ -254,7 +256,7 @@ public class MusicServerManager {
             pausedAtMs = getElapsedMs();
             paused = true;
             NetworkHandler.sendToAllPlayers(new S2CPausePacket(true, pausedAtMs));
-            broadcastMessage("§6♪ §7已暂停: §f" + currentSong);
+            broadcastMessage(Lang.tr("§6♪ §7已暂停: §f") + currentSong);
         } else {
             // 恢复：重新设置起始时间，使已播放时长 = pausedAtMs
             paused = false;
@@ -262,7 +264,7 @@ public class MusicServerManager {
             playStartTime = System.currentTimeMillis() - pausedAtMs;
             totalPausedDuration = 0;
             NetworkHandler.sendToAllPlayers(new S2CPausePacket(false, pausedAtMs));
-            broadcastMessage("§6♪ §a继续播放: §f" + currentSong);
+            broadcastMessage(Lang.tr("§6♪ §a继续播放: §f") + currentSong);
         }
         return true;
     }
@@ -283,7 +285,7 @@ public class MusicServerManager {
         playStartTime = System.currentTimeMillis() - seekMs;
         NetworkHandler.sendToAllPlayers(new S2CPlayPacket(
                 currentSong, currentFileName, currentMd5, currentFileSize, seekMs));
-        broadcastMessage("§6♪ §e已跳转至 §f" + formatSeekTime(seekMs));
+        broadcastMessage(Lang.tr("§6♪ §e已跳转至 §f") + formatSeekTime(seekMs));
         return true;
     }
 
@@ -444,7 +446,7 @@ public class MusicServerManager {
      * @return null 表示成功，否则为可直接展示的错误信息
      */
     public String createPlaylist(String name) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         try {
             Playlist playlist = playlistLibrary.create(name);
             broadcastPlaylists();
@@ -457,7 +459,7 @@ public class MusicServerManager {
 
     /** 重命名歌单；返回 null 表示成功 */
     public String renamePlaylist(String id, String newName) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         try {
             playlistLibrary.rename(id, newName);
             broadcastPlaylists();
@@ -469,7 +471,7 @@ public class MusicServerManager {
 
     /** 删除歌单；返回 null 表示成功 */
     public String deletePlaylist(String id) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         try {
             Playlist removed = playlistLibrary.delete(id);
             broadcastPlaylists();
@@ -482,11 +484,11 @@ public class MusicServerManager {
 
     /** 向歌单添加歌曲（支持按标题/文件名模糊匹配）；返回 null 表示成功 */
     public String addSongToPlaylist(String id, String songQuery) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         Playlist playlist = playlistLibrary.getById(id);
-        if (playlist == null) return "歌单不存在";
+        if (playlist == null) return Lang.tr("歌单不存在");
         String song = resolveLibrarySong(songQuery);
-        if (song == null) return "未找到歌曲: " + songQuery;
+        if (song == null) return Lang.tr("未找到歌曲: ") + songQuery;
         try {
             playlistLibrary.addSong(id, song);
             broadcastPlaylists();
@@ -498,10 +500,10 @@ public class MusicServerManager {
 
     /** 批量向歌单添加歌曲（歌单内勾选后点「确定」）；返回 null 表示成功 */
     public String addSongsToPlaylist(String id, List<String> songQueries) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         Playlist playlist = playlistLibrary.getById(id);
-        if (playlist == null) return "歌单不存在";
-        if (songQueries == null || songQueries.isEmpty()) return "没有选择歌曲";
+        if (playlist == null) return Lang.tr("歌单不存在");
+        if (songQueries == null || songQueries.isEmpty()) return Lang.tr("没有选择歌曲");
         List<String> resolved = new ArrayList<>();
         for (String query : songQueries) {
             String song = resolveLibrarySong(query);
@@ -509,10 +511,10 @@ public class MusicServerManager {
                 resolved.add(song);
             }
         }
-        if (resolved.isEmpty()) return "没有可添加的歌曲";
+        if (resolved.isEmpty()) return Lang.tr("没有可添加的歌曲");
         try {
             int added = playlistLibrary.addSongs(id, resolved);
-            if (added <= 0) return "所选歌曲已在歌单中";
+            if (added <= 0) return Lang.tr("所选歌曲已在歌单中");
             broadcastPlaylists();
             return null;
         } catch (IllegalArgumentException e) {
@@ -522,11 +524,11 @@ public class MusicServerManager {
 
     /** 从歌单移除歌曲；返回 null 表示成功 */
     public String removeSongFromPlaylist(String id, String songQuery) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
         Playlist playlist = playlistLibrary.getById(id);
-        if (playlist == null) return "歌单不存在";
+        if (playlist == null) return Lang.tr("歌单不存在");
         String song = resolvePlaylistSong(playlist, songQuery);
-        if (song == null) return "歌单中没有这首歌: " + songQuery;
+        if (song == null) return Lang.tr("歌单中没有这首歌: ") + songQuery;
         try {
             playlistLibrary.removeSong(id, song);
             broadcastPlaylists();
@@ -543,11 +545,11 @@ public class MusicServerManager {
      * @return null 表示成功
      */
     public String playPlaylist(String id, String songQuery) {
-        if (playlistLibrary == null) return "歌单系统未初始化";
-        if (musicLibrary == null) return "音乐库未初始化";
+        if (playlistLibrary == null) return Lang.tr("歌单系统未初始化");
+        if (musicLibrary == null) return Lang.tr("音乐库未初始化");
         Playlist playlist = playlistLibrary.getById(id);
-        if (playlist == null) return "歌单不存在";
-        if (playlist.isEmpty()) return "歌单「" + playlist.getName() + "」还是空的";
+        if (playlist == null) return Lang.tr("歌单不存在");
+        if (playlist.isEmpty()) return Lang.tr("歌单「") + playlist.getName() + Lang.tr("」还是空的");
 
         // 过滤掉已被删除的歌曲，保持歌单顺序
         Set<String> existing = new HashSet<>(musicLibrary.getSongNames());
@@ -555,7 +557,7 @@ public class MusicServerManager {
         for (String song : playlist.getSongs()) {
             if (existing.contains(song)) queue.add(song);
         }
-        if (queue.isEmpty()) return "歌单中的歌曲文件都不存在（可重新扫描音乐库）";
+        if (queue.isEmpty()) return Lang.tr("歌单中的歌曲文件都不存在（可重新扫描音乐库）");
 
         String target;
         if (songQuery == null || songQuery.isEmpty()) {
@@ -565,13 +567,13 @@ public class MusicServerManager {
         } else {
             String resolved = resolveLibrarySong(songQuery);
             if (resolved == null || !queue.contains(resolved)) {
-                return "歌单中没有这首歌: " + songQuery;
+                return Lang.tr("歌单中没有这首歌: ") + songQuery;
             }
             target = resolved;
         }
 
-        if (!playMusicWithQueue(target, queue)) return "播放失败";
-        broadcastMessage("§6♪ §a正在播放歌单: §f" + playlist.getName());
+        if (!playMusicWithQueue(target, queue)) return Lang.tr("播放失败");
+        broadcastMessage(Lang.tr("§6♪ §a正在播放歌单: §f") + playlist.getName());
         return null;
     }
 
@@ -970,7 +972,7 @@ public class MusicServerManager {
 
         // 权限校验：仅 OP 可上传
         if (!player.hasPermissions(2)) {
-            S2CUploadResultPacket.sendTo(player, false, fileName, "需要管理员权限");
+            S2CUploadResultPacket.sendTo(player, false, fileName, Lang.tr("需要管理员权限"));
             cleanupUploadSession(playerId);
             return;
         }
@@ -979,11 +981,11 @@ public class MusicServerManager {
         if (chunkIndex == 0) {
             String ext = getExtension(fileName);
             if (!MusicLibrary.SUPPORTED_EXTENSIONS.contains(ext)) {
-                S2CUploadResultPacket.sendTo(player, false, fileName, "不支持的文件格式: " + ext);
+                S2CUploadResultPacket.sendTo(player, false, fileName, Lang.tr("不支持的文件格式: ") + ext);
                 return;
             }
             if (totalChunks <= 0) {
-                S2CUploadResultPacket.sendTo(player, false, fileName, "无效的数据块数");
+                S2CUploadResultPacket.sendTo(player, false, fileName, Lang.tr("无效的数据块数"));
                 return;
             }
             // 清理可能存在的旧会话（同一玩家重复上传）
@@ -996,13 +998,13 @@ public class MusicServerManager {
 
         UploadSession session = uploadSessions.get(playerId);
         if (session == null) {
-            S2CUploadResultPacket.sendTo(player, false, fileName, "上传会话不存在，请重新上传");
+            S2CUploadResultPacket.sendTo(player, false, fileName, Lang.tr("上传会话不存在，请重新上传"));
             return;
         }
 
         // 大小校验
         if (session.receivedBytes + data.length > MAX_UPLOAD_SIZE) {
-            S2CUploadResultPacket.sendTo(player, false, fileName, "文件超过大小上限(100MB)");
+            S2CUploadResultPacket.sendTo(player, false, fileName, Lang.tr("文件超过大小上限(100MB)"));
             cleanupUploadSession(playerId);
             return;
         }
@@ -1010,7 +1012,7 @@ public class MusicServerManager {
         // 顺序校验
         if (chunkIndex != session.nextExpectedIndex) {
             S2CUploadResultPacket.sendTo(player, false, fileName,
-                    "数据块乱序(期望" + session.nextExpectedIndex + "，收到" + chunkIndex + ")");
+                    Lang.tr("数据块乱序(期望") + session.nextExpectedIndex + Lang.tr("，收到") + chunkIndex + ")");
             cleanupUploadSession(playerId);
             return;
         }
@@ -1031,14 +1033,14 @@ public class MusicServerManager {
         UUID playerId = player.getUUID();
         try {
             if (musicLibrary == null || musicLibrary.getSongsDir() == null) {
-                S2CUploadResultPacket.sendTo(player, false, session.fileName, "服务器歌曲目录未初始化");
+                S2CUploadResultPacket.sendTo(player, false, session.fileName, Lang.tr("服务器歌曲目录未初始化"));
                 cleanupUploadSession(playerId);
                 return;
             }
 
             File songsDir = musicLibrary.getSongsDir();
             if (!songsDir.exists() && !songsDir.mkdirs()) {
-                S2CUploadResultPacket.sendTo(player, false, session.fileName, "无法创建歌曲目录");
+                S2CUploadResultPacket.sendTo(player, false, session.fileName, Lang.tr("无法创建歌曲目录"));
                 cleanupUploadSession(playerId);
                 return;
             }
@@ -1060,12 +1062,12 @@ public class MusicServerManager {
                     String.format("%.1f MB", session.receivedBytes / 1024.0 / 1024.0));
 
             // 广播通知全服
-            broadcastMessage("§6♪ §e管理员 §f" + player.getName().getString()
-                    + " §e上传了新歌曲: §f" + safeName);
+            broadcastMessage(Lang.tr("§6♪ §e管理员 §f") + player.getName().getString()
+                    + Lang.tr(" §e上传了新歌曲: §f") + safeName);
 
         } catch (IOException e) {
             MusicMod.LOGGER.error("Failed to save uploaded file '{}'", session.fileName, e);
-            S2CUploadResultPacket.sendTo(player, false, session.fileName, "保存文件失败: " + e.getMessage());
+            S2CUploadResultPacket.sendTo(player, false, session.fileName, Lang.tr("保存文件失败: ") + e.getMessage());
         } finally {
             cleanupUploadSession(playerId);
         }

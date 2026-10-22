@@ -164,7 +164,7 @@ public class ClientMusicManager {
             MusicMod.LOGGER.info("Cache miss for song: {}, requesting from server", songName);
             audioEngine.stop();
             NetworkHandler.sendToServer(new C2SRequestSongDataPacket(songName, offsetMs));
-            showChatMessage("§6♪ §e正在下载歌曲: §f" + songName + "§e...");
+            showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §e正在下载歌曲: §f") + songName + com.musicmod.i18n.Lang.tr("§e..."));
         }
     }
 
@@ -239,7 +239,7 @@ public class ClientMusicManager {
                 && !state.playbackStarted && state.bufferStream.getBufferedBytes() >= PREBUFFER_BYTES) {
             state.playbackStarted = true;
             playFromStream(state.bufferStream, songName, state.latestServerElapsedMs);
-            showChatMessage("§6♪ §a缓冲完成，开始播放: §f" + songName);
+            showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §a缓冲完成，开始播放: §f") + songName);
         }
 
         // 所有块接收完毕
@@ -270,7 +270,7 @@ public class ClientMusicManager {
                 } else {
                     playFromStream(state.bufferStream, songName, state.latestServerElapsedMs);
                 }
-                showChatMessage("§6♪ §a下载完成，开始播放: §f" + songName);
+                showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §a下载完成，开始播放: §f") + songName);
             }
         }
     }
@@ -325,7 +325,7 @@ public class ClientMusicManager {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(Component.literal(
-                    "§6♪ §e个人音量已设置为: §f" + Math.round(clamped * 100) + "%"), false);
+                    com.musicmod.i18n.Lang.tr("§6♪ §e个人音量已设置为: §f") + Math.round(clamped * 100) + "%"), false);
         }
     }
 

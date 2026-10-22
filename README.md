@@ -24,12 +24,12 @@ Windows：
 gradlew.bat build
 ```
 
-产物：`build/libs/musicmod-1.0.0.jar`
+产物：`build/libs/musicmod-1.1.0.jar`
 
 ## 安装
 
 1. 安装 Forge 1.20.1（47.x）；
-2. 将 `musicmod-1.0.0.jar` 放入客户端和服务端的 `mods/`；
+2. 将 `musicmod-1.1.0.jar` 放入客户端和服务端的 `mods/`；
 3. 启动服务器，歌曲目录默认生成在 `config/musicmod/songs/`；
 4. 把 MP3 / OGG / FLAC / WAV / M4A 等歌曲放入该目录，执行 `/music rescan`；
 5. OP（权限等级 2）使用 `/music play <歌名>` 开始播放。
@@ -37,6 +37,7 @@ gradlew.bat build
 ## 功能
 
 - 全服同步播放、暂停、停止、上一首 / 下一首、进度跳转；
+- 英语界面与英文聊天/命令反馈（English UI/localization）；
 - 服务器共享歌单：新建、重命名、删除、添加 / 移除歌曲、按歌单顺序播放；
 - 每个玩家本地内置「收藏」与「最近播放」；
 - 歌曲标签、封面、内嵌歌词与同名 `.lrc`；

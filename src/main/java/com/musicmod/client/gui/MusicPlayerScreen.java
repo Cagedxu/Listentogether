@@ -1,5 +1,7 @@
 package com.musicmod.client.gui;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.client.ClientMusicManager;
 import com.musicmod.client.ClientTagStore;
 import com.musicmod.config.MusicModConfig;
@@ -70,7 +72,7 @@ public class MusicPlayerScreen extends Screen {
     private VolumeSlider volumeSlider;
 
     public MusicPlayerScreen() {
-        super(Component.literal("一起听 · 播放器"));
+        super(Component.literal(Lang.tr("一起听 · 播放器")));
     }
 
     private boolean isOp() {
@@ -125,10 +127,10 @@ public class MusicPlayerScreen extends Screen {
 
         // 0.27.3：搜索框一直显示，宽度与歌曲列表一致，不显示搜索图标
         searchBox = new EditBox(this.font, listX, LIST_Y - 13, LIST_W, 12,
-                Component.literal("搜索"));
+                Component.literal(Lang.tr("搜索")));
         searchBox.setMaxLength(64);
         // 0.28.2：搜索框为空时显示提示文字
-        searchBox.setHint(Component.literal("§7搜索歌曲 / 歌手..."));
+        searchBox.setHint(Component.literal(Lang.tr("§7搜索歌曲 / 歌手...")));
         searchBox.setResponder(text -> {
             searchFilter = text.trim().toLowerCase();
             updateFilteredSongs();
@@ -143,27 +145,27 @@ public class MusicPlayerScreen extends Screen {
         int tCount = singleplayer ? 5 : 6;
         int tTotal = tW * tCount + gap * (tCount - 1);
         int tx = cx - tTotal / 2;
-        playModeBtn = addBtn("顺序播放", tx, tY, tW,
+        playModeBtn = addBtn(Lang.tr("顺序播放"), tx, tY, tW,
                 () -> sendAction(C2SMusicActionPacket.ACTION_PLAY_MODE));
         tx += tW + gap;
-        Button playlistBtn = addBtn("≡ 歌单", tx, tY, tW,
+        Button playlistBtn = addBtn(Lang.tr("≡ 歌单"), tx, tY, tW,
                 () -> Minecraft.getInstance().setScreen(new MusicAppScreen(true)));
         tx += tW + gap;
-        Button styleBtn = addBtn("♪ 播放器", tx, tY, tW, () -> {
+        Button styleBtn = addBtn(Lang.tr("♪ 播放器"), tx, tY, tW, () -> {
             MusicModConfig.setUiStyle(MusicModConfig.UiStyle.PLAYER);
             MusicModConfig.saveClientConfig();
             Minecraft.getInstance().setScreen(new MusicAppScreen());
         });
         tx += tW + gap;
-        configBtn = addBtn("⚙ 配置", tx, tY, tW, () ->
+        configBtn = addBtn(Lang.tr("⚙ 配置"), tx, tY, tW, () ->
                 Minecraft.getInstance().setScreen(new MusicModConfigScreen(this)));
         tx += tW + gap;
         if (!singleplayer) {
-            uploadBtn = addBtn("⬆ 上传", tx, tY, tW,
+            uploadBtn = addBtn(Lang.tr("⬆ 上传"), tx, tY, tW,
                     () -> com.musicmod.client.ClientFileUploader.openUploadDialog());
             tx += tW + gap;
         }
-        doneBtn = addBtn("关闭", tx, tY, tW, this::onClose);
+        doneBtn = addBtn(Lang.tr("关闭"), tx, tY, tW, this::onClose);
 
         if (!op) {
             playModeBtn.active = false;
@@ -217,7 +219,7 @@ public class MusicPlayerScreen extends Screen {
         if (mgr.isPlaying() || mgr.isPaused()) {
             statusLine = "§f" + curTitle;
         } else {
-            statusLine = "§7未在播放";
+            statusLine = Lang.tr("§7未在播放");
         }
         guiGraphics.drawCenteredString(font, statusLine, cx, STATUS_Y, 0xFFFFFF);
 
@@ -259,7 +261,7 @@ public class MusicPlayerScreen extends Screen {
         // 空列表提示
         if (displaySongs.isEmpty()) {
             String emptyMsg = searchFilter.isEmpty()
-                    ? "§7（列表为空，放入歌曲后点 ⟳ 刷新）" : "§7（无匹配歌曲）";
+                    ? Lang.tr("§7（列表为空，放入歌曲后点 ⟳ 刷新）") : Lang.tr("§7（无匹配歌曲）");
             guiGraphics.drawCenteredString(font, emptyMsg, cx, LIST_Y + listH / 2 - 4, 0xAAAAAA);
         }
 
@@ -274,17 +276,17 @@ public class MusicPlayerScreen extends Screen {
         }
 
         // 0.27.3：计数与已选提示移至列表下方（搜索框占满列表上方整行）
-        String countText = "§7共 " + displaySongs.size() + " 首";
+        String countText = Lang.tr("§7共 ") + displaySongs.size() + Lang.tr(" 首");
         guiGraphics.drawString(font, countText, listX, LIST_Y + listH + 2, 0xAAAAAA);
         // 0.28.0：排序标签（点击循环切换），置于计数行右端
-        String sortText = "§7[排序: " + sortModeName() + "]";
+        String sortText = Lang.tr("§7[排序: ") + sortModeName() + "]";
         int sortW = font.width(sortText);
         int sortX = listX + LIST_W - sortW;
         guiGraphics.drawString(font, sortText, sortX, LIST_Y + listH + 2, 0xAAAAAA);
         sortLabelX = sortX;
         sortLabelW = sortW;
         if (selectedSong >= 0 && selectedSong < displaySongs.size()) {
-            String sel = "§e已选: §f" + truncate(font,
+            String sel = Lang.tr("§e已选: §f") + truncate(font,
                     ClientTagStore.getInstance().displayTitle(displaySongs.get(selectedSong)), 90);
             int selX = listX + font.width(countText) + 8;
             int maxSelW = LIST_W - font.width(countText) - 8 - sortW - 6;
@@ -504,11 +506,11 @@ public class MusicPlayerScreen extends Screen {
     /** 0.28.0：排序模式显示名 */
     private static String sortModeName() {
         switch (MusicModConfig.getSortMode()) {
-            case TITLE: return "标题";
-            case ARTIST: return "歌手";
-            case ALBUM: return "专辑";
-            case DURATION: return "时长";
-            default: return "标题";
+            case TITLE: return Lang.tr("标题");
+            case ARTIST: return Lang.tr("歌手");
+            case ALBUM: return Lang.tr("专辑");
+            case DURATION: return Lang.tr("时长");
+            default: return Lang.tr("标题");
         }
     }
 

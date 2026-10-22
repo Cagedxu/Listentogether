@@ -2,6 +2,7 @@ package com.musicmod.client.gui;
 
 import com.musicmod.client.ClientMusicManager;
 import com.musicmod.config.MusicModConfig;
+import com.musicmod.i18n.Lang;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
@@ -24,7 +25,7 @@ public class VolumeSlider extends AbstractSliderButton {
     protected void updateMessage() {
         int pct = (int) Math.round(this.value * 100.0);
         // 播放栏宽度有限，使用短文案避免百分比被裁剪
-        setMessage(Component.literal("音量 " + pct + "%"));
+        setMessage(Component.literal(Lang.tr("音量 ") + pct + "%"));
     }
 
     @Override

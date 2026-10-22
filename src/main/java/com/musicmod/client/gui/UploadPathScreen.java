@@ -1,5 +1,7 @@
 package com.musicmod.client.gui;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.client.ClientFileUploader;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -27,7 +29,7 @@ public class UploadPathScreen extends Screen {
     private String error = "";
 
     public UploadPathScreen(Screen parent) {
-        super(Component.literal("一起听 · 上传音乐"));
+        super(Component.literal(Lang.tr("一起听 · 上传音乐")));
         this.parent = parent;
     }
 
@@ -38,17 +40,17 @@ public class UploadPathScreen extends Screen {
         int cy = this.height / 2;
 
         pathBox = new EditBox(this.font, cx - 150, cy - 12, 300, 20,
-                Component.literal("音乐文件路径"));
+                Component.literal(Lang.tr("音乐文件路径")));
         pathBox.setMaxLength(1024);
-        pathBox.setHint(Component.literal("§7例如 C:\\Music\\song.mp3"));
+        pathBox.setHint(Component.literal(Lang.tr("§7例如 C:\\Music\\song.mp3")));
         this.addRenderableWidget(pathBox);
 
-        uploadBtn = Button.builder(Component.literal("上传"), b -> upload())
+        uploadBtn = Button.builder(Component.literal(Lang.tr("上传")), b -> upload())
                 .bounds(cx - 104, cy + 24, 100, 20).build();
         this.addRenderableWidget(uploadBtn);
-        this.addRenderableWidget(Button.builder(Component.literal("取消"), b -> onClose())
+        this.addRenderableWidget(Button.builder(Component.literal(Lang.tr("取消")), b -> onClose())
                 .bounds(cx + 4, cy + 24, 100, 20).build());
-        this.addRenderableWidget(Button.builder(Component.literal("§b📂 打开音乐文件夹"), b -> openUploadFolder())
+        this.addRenderableWidget(Button.builder(Component.literal(Lang.tr("§b📂 打开音乐文件夹")), b -> openUploadFolder())
                 .bounds(cx - 100, cy + 52, 200, 20).build());
 
         this.setFocused(pathBox);
@@ -61,12 +63,12 @@ public class UploadPathScreen extends Screen {
             raw = raw.substring(1, raw.length() - 1).trim();
         }
         if (raw.isEmpty()) {
-            error = "请输入音乐文件的完整路径";
+            error = Lang.tr("请输入音乐文件的完整路径");
             return;
         }
         File file = new File(raw);
         if (!file.isFile()) {
-            error = "文件不存在: " + raw;
+            error = Lang.tr("文件不存在: ") + raw;
             return;
         }
         ClientFileUploader.uploadLocalFile(file);
@@ -79,7 +81,7 @@ public class UploadPathScreen extends Screen {
         try {
             Util.getPlatform().openFile(dir);
         } catch (Throwable ignored) {
-            error = "无法自动打开文件夹，请手动访问: " + dir.getAbsolutePath();
+            error = Lang.tr("无法自动打开文件夹，请手动访问: ") + dir.getAbsolutePath();
         }
     }
 
@@ -102,10 +104,10 @@ public class UploadPathScreen extends Screen {
         g.fill(cx - 172, cy - 62, cx + 172, cy + 92, 0xFF4A4A60);
         g.fill(cx - 171, cy - 61, cx + 171, cy + 91, 0xF0161626);
 
-        g.drawCenteredString(this.font, "§e§l一起听 · 上传音乐", cx, cy - 52, 0xFFFFFF);
-        g.drawCenteredString(this.font, "§7系统文件选择器不可用，请粘贴本地音乐文件完整路径：",
+        g.drawCenteredString(this.font, Lang.tr("§e§l一起听 · 上传音乐"), cx, cy - 52, 0xFFFFFF);
+        g.drawCenteredString(this.font, Lang.tr("§7系统文件选择器不可用，请粘贴本地音乐文件完整路径："),
                 cx, cy - 36, 0xAAAAAA);
-        g.drawCenteredString(this.font, "§8支持 MP3 / OGG / FLAC / WAV / M4A 等格式",
+        g.drawCenteredString(this.font, Lang.tr("§8支持 MP3 / OGG / FLAC / WAV / M4A 等格式"),
                 cx, cy - 24, 0x888888);
         if (!error.isEmpty()) {
             g.drawCenteredString(this.font, "§c" + error, cx, cy + 12, 0xFF5555);

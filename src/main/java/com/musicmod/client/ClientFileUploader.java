@@ -1,5 +1,7 @@
 package com.musicmod.client;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.audio.MusicLibrary;
 import com.musicmod.network.NetworkHandler;
 import com.musicmod.network.packet.C2SUploadSongPacket;
@@ -28,7 +30,7 @@ public class ClientFileUploader {
         if (mc.player == null) return;
 
         if (!isOp()) {
-            mc.player.displayClientMessage(Component.literal("§c[一起听] 需要管理员权限才能上传音乐"), false);
+            mc.player.displayClientMessage(Component.literal(Lang.tr("§c[一起听] 需要管理员权限才能上传音乐")), false);
             return;
         }
 
@@ -59,7 +61,7 @@ public class ClientFileUploader {
             // 防御性设置：确保 AWT 非无头模式（Windows 默认即为 false，但保险起见）
             System.setProperty("java.awt.headless", "false");
 
-            notifyMc("§7[一起听] 正在打开文件选择器…");
+            notifyMc(Lang.tr("§7[一起听] 正在打开文件选择器…"));
 
             // 创建不可见属主窗口（UTILITY 类型不占任务栏），比 null 父级更可靠
             Frame owner = new Frame();
@@ -68,7 +70,7 @@ public class ClientFileUploader {
             owner.setSize(0, 0);
 
             // 使用 AWT FileDialog（系统原生文件选择器）
-            FileDialog fd = new FileDialog(owner, "选择要上传的音乐文件", FileDialog.LOAD);
+            FileDialog fd = new FileDialog(owner, Lang.tr("选择要上传的音乐文件"), FileDialog.LOAD);
             fd.setMultipleMode(false);
             try { fd.setAlwaysOnTop(true); } catch (Throwable ignored) {}
 
@@ -102,10 +104,10 @@ public class ClientFileUploader {
             uploadLocalFile(new File(dirName, fileName));
         } catch (HeadlessException he) {
             // 无头模式：回退到游戏内路径输入界面
-            notifyMc("§e[一起听] 系统文件选择器不可用，已切换到路径输入界面");
+            notifyMc(Lang.tr("§e[一起听] 系统文件选择器不可用，已切换到路径输入界面"));
             openPathInputScreen();
         } catch (Throwable t) {
-            notifyMc("§e[一起听] 无法打开系统文件选择器，已切换到路径输入界面: " + t.getMessage());
+            notifyMc(Lang.tr("§e[一起听] 无法打开系统文件选择器，已切换到路径输入界面: ") + t.getMessage());
             openPathInputScreen();
         }
     }
@@ -124,35 +126,35 @@ public class ClientFileUploader {
     private static void doUploadFile(File file) {
         try {
             if (!file.isFile()) {
-                notifyMc("§c[一起听] 文件不存在: " + file.getAbsolutePath());
+                notifyMc(Lang.tr("§c[一起听] 文件不存在: ") + file.getAbsolutePath());
                 return;
             }
             String fileName = file.getName();
             long fileLength = file.length();
             if (fileLength <= 0) {
-                notifyMc("§c[一起听] 文件为空: " + fileName);
+                notifyMc(Lang.tr("§c[一起听] 文件为空: ") + fileName);
                 return;
             }
 
             // 大小限制（与服务器一致 100MB）
             if (fileLength > 100L * 1024 * 1024) {
-                notifyMc("§c[一起听] 文件超过 100MB 上限: " + fileName);
+                notifyMc(Lang.tr("§c[一起听] 文件超过 100MB 上限: ") + fileName);
                 return;
             }
 
             // 扩展名校验
             String ext = getExtension(fileName);
             if (!MusicLibrary.SUPPORTED_EXTENSIONS.contains(ext)) {
-                notifyMc("§c[一起听] 不支持的文件格式: ." + ext);
+                notifyMc(Lang.tr("§c[一起听] 不支持的文件格式: .") + ext);
                 return;
             }
 
-            notifyMc("§e[一起听] 正在上传: " + fileName + " ...");
+            notifyMc(Lang.tr("§e[一起听] 正在上传: ") + fileName + " ...");
 
             byte[] fileData = Files.readAllBytes(file.toPath());
             int totalChunks = (int) Math.ceil((double) fileData.length / C2SUploadSongPacket.MAX_CHUNK_SIZE);
             if (totalChunks <= 0) {
-                notifyMc("§c[一起听] 文件为空，无法上传: " + fileName);
+                notifyMc(Lang.tr("§c[一起听] 文件为空，无法上传: ") + fileName);
                 return;
             }
 
@@ -174,9 +176,9 @@ public class ClientFileUploader {
             // 最终结果由 S2CUploadResultPacket 通知
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            notifyMc("§c[一起听] 上传被中断");
+            notifyMc(Lang.tr("§c[一起听] 上传被中断"));
         } catch (Throwable t) {
-            notifyMc("§c[一起听] 上传失败: " + t.getMessage());
+            notifyMc(Lang.tr("§c[一起听] 上传失败: ") + t.getMessage());
         }
     }
 

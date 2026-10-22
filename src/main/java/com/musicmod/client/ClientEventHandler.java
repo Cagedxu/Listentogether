@@ -1,5 +1,7 @@
 package com.musicmod.client;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.MusicMod;
 import com.musicmod.client.gui.LyricsParser;
 import com.musicmod.client.gui.MusicPlayerScreen;
@@ -30,7 +32,7 @@ public class ClientEventHandler {
     public static void onClientPlayerLoggedIn(ClientPlayerNetworkEvent.LoggingIn event) {
         // 初始化客户端管理器
         ClientMusicManager.getInstance().init();
-        MusicMod.LOGGER.info("一起听 client initialized");
+        MusicMod.LOGGER.info(Lang.tr("一起听 client initialized"));
     }
 
     @SubscribeEvent
@@ -42,7 +44,7 @@ public class ClientEventHandler {
         lyricsCacheSong = "";
         lyricsCacheText = null;
         lyricsCacheLines = null;
-        MusicMod.LOGGER.info("一起听 client stopped playback on disconnect");
+        MusicMod.LOGGER.info(Lang.tr("一起听 client stopped playback on disconnect"));
     }
 
     /**
@@ -64,11 +66,11 @@ public class ClientEventHandler {
         while (ModKeyBindings.CYCLE_HUD_MODE.consumeClick()) {
             MusicModConfig.HudMode mode = MusicModConfig.cycleHudMode();
             MusicModConfig.saveClientConfig();
-            String modeText = mode == MusicModConfig.HudMode.LYRICS ? "§b歌词"
-                    : mode == MusicModConfig.HudMode.SONG_NAME ? "§a歌名"
-                    : mode == MusicModConfig.HudMode.CARD ? "§d卡片" : "§c关闭";
+            String modeText = mode == MusicModConfig.HudMode.LYRICS ? Lang.tr("§b歌词")
+                    : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("§a歌名")
+                    : mode == MusicModConfig.HudMode.CARD ? Lang.tr("§d卡片") : Lang.tr("§c关闭");
             mc.player.displayClientMessage(
-                    Component.literal("§6♪ §eHUD 显示: " + modeText), true);
+                    Component.literal(Lang.tr("§6♪ §eHUD 显示: ") + modeText), true);
         }
         // N 键循环切换播放模式（需 OP，服务端校验）
         while (ModKeyBindings.CYCLE_PLAY_MODE.consumeClick()) {

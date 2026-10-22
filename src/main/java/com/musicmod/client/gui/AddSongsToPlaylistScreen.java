@@ -1,5 +1,7 @@
 package com.musicmod.client.gui;
 
+import com.musicmod.i18n.Lang;
+
 import com.musicmod.client.ClientFavorites;
 import com.musicmod.client.ClientMusicManager;
 import com.musicmod.client.ClientPlaylists;
@@ -54,7 +56,7 @@ public class AddSongsToPlaylistScreen extends Screen {
     private Button confirmBtn;
 
     public AddSongsToPlaylistScreen(Screen parent, String playlistId) {
-        super(Component.literal("一起听 · 添加歌曲"));
+        super(Component.literal(Lang.tr("一起听 · 添加歌曲")));
         this.parent = parent;
         this.playlistId = playlistId == null ? "" : playlistId;
     }
@@ -117,9 +119,9 @@ public class AddSongsToPlaylistScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        cancelBtn = Button.builder(Component.literal("取消"), b -> onClose())
+        cancelBtn = Button.builder(Component.literal(Lang.tr("取消")), b -> onClose())
                 .bounds(this.width / 2 - 92, this.height - 28, 88, 20).build();
-        confirmBtn = Button.builder(Component.literal("确定"), b -> confirm())
+        confirmBtn = Button.builder(Component.literal(Lang.tr("确定")), b -> confirm())
                 .bounds(this.width / 2 + 4, this.height - 28, 88, 20).build();
         this.addRenderableWidget(cancelBtn);
         this.addRenderableWidget(confirmBtn);
@@ -160,12 +162,12 @@ public class AddSongsToPlaylistScreen extends Screen {
         visibleRows = Math.max(1, h / ROW_H);
 
         // 顶部标题 / 说明 / 计数（限制在窄面板内）
-        g.drawString(font, "§e§l添加歌曲到「"
-                + truncate(font, target.getName(), Math.max(40, w - 110)) + "」",
+        g.drawString(font, Lang.tr("§e§l添加歌曲到「")
+                + truncate(font, Lang.tr(target.getName()), Math.max(40, w - 110)) + "」",
                 x + 10, 8, 0xFFFFFF);
-        String count = "§7共 " + songs.size() + " 首";
+        String count = Lang.tr("§7共 ") + songs.size() + Lang.tr(" 首");
         g.drawString(font, count, x + w - font.width(count) - 10, 8, 0xAAAAAA);
-        String sub = favorites() ? "§7勾选后点「确定」加入收藏" : "§7勾选后点「确定」加入歌单";
+        String sub = favorites() ? Lang.tr("§7勾选后点「确定」加入收藏") : Lang.tr("§7勾选后点「确定」加入歌单");
         g.drawString(font, sub, x + 10, 22, 0xAAAAAA);
 
         // 窄而高的列表面板（与播放器其它页面同一色调）
@@ -173,7 +175,7 @@ public class AddSongsToPlaylistScreen extends Screen {
         g.fill(x, y, x + w, y + h, 0x90000010);
 
         if (songs.isEmpty()) {
-            g.drawCenteredString(font, "§7歌曲列表为空，请先放入歌曲并刷新",
+            g.drawCenteredString(font, Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新"),
                     x + w / 2, y + h / 2 - 4, 0xAAAAAA);
         } else {
             int maxScroll = Math.max(0, songs.size() - visibleRows);
@@ -201,7 +203,7 @@ public class AddSongsToPlaylistScreen extends Screen {
                 g.drawString(font, (already ? "§8" : "§f")
                                 + truncate(font, display, titleMax),
                         titleX, rowY + 4, already ? 0x888888 : 0xF0F0F0);
-                String status = already ? "§a✓ 已添加" : isPending ? "§b待添加" : "";
+                String status = already ? Lang.tr("§a✓ 已添加") : isPending ? Lang.tr("§b待添加") : "";
                 if (!status.isEmpty()) {
                     g.drawString(font, status, x + w - font.width(status) - 12,
                             rowY + 4, already ? 0x55FF55 : 0x55FFFF);
@@ -218,7 +220,7 @@ public class AddSongsToPlaylistScreen extends Screen {
         }
 
         // 底部：已勾选数量（取消 / 确定按钮为真实控件，在 super.render 中绘制）
-        g.drawString(font, "§7已勾选 §e" + pending.size() + " §7首",
+        g.drawString(font, Lang.tr("§7已勾选 §e") + pending.size() + Lang.tr(" §7首"),
                 x + 10, this.height - 16, 0xAAAAAA);
     }
 

@@ -1,5 +1,7 @@
 package com.musicmod.audio;
 
+import com.musicmod.i18n.Lang;
+
 /**
  * 歌曲元数据标签（ID3v1/ID3v2、Vorbis Comment、FLAC 等）。
  * 双端通用纯数据类，不引用任何客户端/服务端专有 API。
@@ -36,7 +38,7 @@ public class SongTags {
         return dot > 0 ? fileName.substring(0, dot) : fileName;
     }
 
-    /** 显示艺术家：无标签时显示"未知艺术家"由调用方处理，这里返回原值 */
+    /** 显示艺术家：无标签时显示Lang.tr("未知艺术家")由调用方处理，这里返回原值 */
     public String getArtistOrEmpty() {
         return artist == null ? "" : artist;
     }
