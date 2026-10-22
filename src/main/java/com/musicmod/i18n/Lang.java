@@ -3,6 +3,9 @@ package com.musicmod.i18n;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.musicmod.client.ClientLang;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -20,7 +23,6 @@ import java.util.Map;
 public final class Lang {
 
     private static final Map<String, String> EN = new HashMap<>();
-    private static Boolean english;
 
     static {
         try (InputStream in = Lang.class.getResourceAsStream("/assets/musicmod/lang/en_us.json")) {
@@ -46,17 +48,8 @@ public final class Lang {
     }
 
     private static boolean isEnglish() {
-        if (english != null) return english;
-        try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Object mc = mcClass.getMethod("getInstance").invoke(null);
-            Object languageManager = mcClass.getMethod("getLanguageManager").invoke(mc);
-            Object selected = languageManager.getClass().getMethod("getSelected").invoke(languageManager);
-            english = String.valueOf(selected).toLowerCase().startsWith("en");
-        } catch (Throwable ignored) {
-            // 专用服务器没有 Minecraft 客户端类：英文服务端
-            english = true;
-        }
-        return english;
+        // 每次读取当前客户端语言，切换语言后无需重启；专用服务器返回 null，按英文。
+        Boolean clientResult = DistExecutor.unsafeCallWhenOn(Dist.CLIENT, () -> ClientLang::isEnglish);
+        return clientResult == null || clientResult;
     }
 }

@@ -211,7 +211,7 @@ public class MusicAppScreen extends Screen {
     }
 
     /** 播放模式按钮宽度（0.25.2：改为文字显示，需更宽） */
-    private static final int PLAY_MODE_BTN_W = 48;
+    private static final int PLAY_MODE_BTN_W = 64;
 
     /** 0.28.1：右侧控件区总宽（右边距4 + 4按钮5*22 + 播放模式48 + 间距2 + 刷新24 + 音量60 + 间距4 + 进度条间隔24） */
     private static final int RIGHT_CONTROLS_W = 4 + 5 * 22 + PLAY_MODE_BTN_W + 2 + 60 + 4 + 24; // 252
@@ -646,7 +646,9 @@ public class MusicAppScreen extends Screen {
         }
         // 播放栏模式按钮：0.25.2 改为直接显示播放顺序文字（带颜色区分）
         com.musicmod.PlayMode pm = mgr.getLastPlayMode();
-        playModeBtn.setMessage(Component.literal(playModeChatColor(pm) + pm.getDisplayName()));
+        String modeLabel = pm.getDisplayName();
+        if (modeLabel == null || modeLabel.isBlank()) modeLabel = pm.name();
+        playModeBtn.setMessage(Component.literal(playModeChatColor(pm) + modeLabel));
         if (songsDirBox != null) songsDirBox.tick();
         // 0.27.0：搜索框光标闪烁
         if (searchBox != null) searchBox.tick();
