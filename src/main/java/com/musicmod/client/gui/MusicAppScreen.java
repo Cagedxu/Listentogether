@@ -371,8 +371,8 @@ public class MusicAppScreen extends Screen {
         // ---- 设置页控件（初始隐藏，render 中按 nav 控制） ----
         int sx = listX() + 8;
         int sw = Math.min(220, listW() - 16);
-        int btnX = sx + 60;  // 按钮右移，左侧留出标签空间
-        int btnW = sw - 60;
+        int btnX = sx + 100;  // 按钮右移，英文标签也需要空间
+        int btnW = sw - 100;
         styleBtn = Button.builder(styleBtnText(), btn -> {
             MusicModConfig.UiStyle next = MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
                     ? MusicModConfig.UiStyle.CLASSIC : MusicModConfig.UiStyle.PLAYER;
@@ -2801,7 +2801,7 @@ public class MusicAppScreen extends Screen {
                 : p == MusicModConfig.HudPosition.TOP_RIGHT ? Lang.tr("右上角")
                 : p == MusicModConfig.HudPosition.BOTTOM_LEFT ? Lang.tr("左下角")
                 : p == MusicModConfig.HudPosition.BOTTOM_RIGHT ? Lang.tr("右下角") : Lang.tr("顶部中央");
-        return Component.literal(Lang.tr("HUD 位置: ") + s);
+        return Component.literal(s);
     }
 
     private Component translationBtnText() {
@@ -2819,17 +2819,17 @@ public class MusicAppScreen extends Screen {
 
     private Component hudTransPosBtnText() {
         return Component.literal(MusicModConfig.getHudLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("HUD 翻译: 下方") : Lang.tr("HUD 翻译: 后方"));
+                ? Lang.tr("下方") : Lang.tr("后方"));
     }
 
     private Component detailTransPosBtnText() {
         return Component.literal(MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("详情翻译: 下方") : Lang.tr("详情翻译: 后方"));
+                ? Lang.tr("下方") : Lang.tr("后方"));
     }
 
     private Component barTransPosBtnText() {
         return Component.literal(MusicModConfig.getBarLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("进度条翻译: 下方") : Lang.tr("进度条翻译: 后方"));
+                ? Lang.tr("下方") : Lang.tr("后方"));
     }
 
     /** 0.27.0：歌词点击模式按钮文本 */
@@ -2845,7 +2845,7 @@ public class MusicAppScreen extends Screen {
     }
 
     private Component playModeBtnText() {
-        return Component.literal(Lang.tr("播放模式: ") + MusicModConfig.getServerDefaultPlayMode().getDisplayName());
+        return Component.literal(MusicModConfig.getServerDefaultPlayMode().getDisplayName());
     }
 
     private Component emptyServerBtnText() {

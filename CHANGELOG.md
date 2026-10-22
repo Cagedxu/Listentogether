@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+- 修复英文设置界面中标签与按钮重叠的问题；
+- 英文设置标签改为紧凑布局，控件右移并缩短按钮文案；
+- 修复播放模式（Sequential / Loop One / Shuffle）未翻译的问题；
+- 同步翻译无人时行为（Continue / Stop / Pause until someone joins）。
+
 ## 1.1.0
 
 - 新增英语适配：主界面、设置、播放器、HUD、上传界面、命令反馈与聊天消息均支持英文；

@@ -1,5 +1,7 @@
 package com.musicmod;
 
+import com.musicmod.i18n.Lang;
+
 /**
  * 服务器无人时的音乐行为枚举（0.17.0 新增）。
  * <ul>
@@ -19,7 +21,7 @@ public enum EmptyServerBehavior {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() { return displayName; }
+    public String getDisplayName() { return Lang.tr(displayName); }
 
     /** 循环切换到下一个行为 */
     public EmptyServerBehavior next() {

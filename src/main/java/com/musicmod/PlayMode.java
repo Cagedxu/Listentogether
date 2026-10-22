@@ -1,5 +1,7 @@
 package com.musicmod;
 
+import com.musicmod.i18n.Lang;
+
 /**
  * 播放模式枚举（1.7.0 新增，0.26.0 移除列表循环）。
  * <ul>
@@ -23,7 +25,7 @@ public enum PlayMode {
         this.color = color;
     }
 
-    public String getDisplayName() { return displayName; }
+    public String getDisplayName() { return Lang.tr(displayName); }
     public String getSymbol() { return symbol; }
     public int getColor() { return color; }
 

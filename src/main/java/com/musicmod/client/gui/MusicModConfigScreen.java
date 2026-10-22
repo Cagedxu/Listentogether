@@ -380,7 +380,7 @@ public class MusicModConfigScreen extends Screen {
 
     private Component styleBtnText() {
         return Component.literal(Lang.tr("界面风格: ") + (MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? Lang.tr("播放器风格") : Lang.tr("经典风格")) + Lang.tr(" §7(点击切换)"));
+                ? Lang.tr("播放器风格") : Lang.tr("经典风格")));
     }
 
     private Component hudBtnText() {
@@ -388,45 +388,43 @@ public class MusicModConfigScreen extends Screen {
         String modeText = mode == MusicModConfig.HudMode.LYRICS ? Lang.tr("§b歌词")
                 : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("§a歌名")
                 : mode == MusicModConfig.HudMode.CARD ? Lang.tr("§d卡片") : Lang.tr("§c关闭");
-        return Component.literal(Lang.tr("HUD 显示: ") + modeText + Lang.tr(" §7(点击切换)"));
+        return Component.literal(Lang.tr("HUD 显示: ") + modeText);
     }
 
     private Component translationBtnText() {
-        return Component.literal(Lang.tr("翻译歌词: ") + (MusicModConfig.getShowTranslation() ? Lang.tr("§a显示") : Lang.tr("§7仅原文")) + Lang.tr(" §7(点击切换)"));
+        return Component.literal(Lang.tr("翻译歌词: ") + (MusicModConfig.getShowTranslation() ? Lang.tr("§a显示") : Lang.tr("§7仅原文")));
     }
 
     private Component noteIconBtnText() {
-        return Component.literal(Lang.tr("音符图标: ") + (MusicModConfig.getShowHudNoteIcon() ? Lang.tr("§a显示") : Lang.tr("§7隐藏")) + Lang.tr(" §7(点击切换)"));
+        return Component.literal(Lang.tr("音符图标: ") + (MusicModConfig.getShowHudNoteIcon() ? Lang.tr("§a显示") : Lang.tr("§7隐藏")));
     }
 
     private Component lyricsAlignBtnText() {
         return Component.literal(Lang.tr("歌词对齐: ") + (MusicModConfig.getHudLyricsAlign() == MusicModConfig.HudLyricsAlign.CENTER
-                ? Lang.tr("居中") : Lang.tr("左对齐")) + Lang.tr(" §7(点击切换)"));
+                ? Lang.tr("居中") : Lang.tr("左对齐")));
     }
 
     private Component hudTransPosBtnText() {
         return Component.literal(Lang.tr("HUD 翻译位置: ") + (MusicModConfig.getHudLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
+                ? Lang.tr("下方") : Lang.tr("后方")));
     }
 
     private Component detailTransPosBtnText() {
         return Component.literal(Lang.tr("详情页翻译位置: ") + (MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
+                ? Lang.tr("下方") : Lang.tr("后方")));
     }
 
     private Component barTransPosBtnText() {
         return Component.literal(Lang.tr("进度条翻译位置: ") + (MusicModConfig.getBarLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方")) + Lang.tr(" §7(点击切换)"));
+                ? Lang.tr("下方") : Lang.tr("后方")));
     }
 
     private Component playModeBtnText() {
         com.musicmod.PlayMode pm = MusicModConfig.getServerDefaultPlayMode();
-        return Component.literal(Lang.tr("播放模式: ") + pm.getSymbol() + " " + pm.getDisplayName()
-                + Lang.tr(" §7(点击切换)"));
+        return Component.literal(Lang.tr("播放模式: ") + pm.getSymbol() + " " + pm.getDisplayName());
     }
 
     private Component emptyServerBtnText() {
-        return Component.literal(Lang.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName()
-                + Lang.tr(" §7(点击切换)"));
+        return Component.literal(Lang.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName());
     }
 }
