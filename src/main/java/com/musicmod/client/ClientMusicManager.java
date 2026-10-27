@@ -233,16 +233,15 @@ public class ClientMusicManager {
         state.receivedChunks.incrementAndGet();
         state.latestServerElapsedMs = serverElapsedMs;
 
-        // 预缓冲足够且尚未开始播放 → 立即开始播放（边下边播）
-        // M4A/MP4/AAC 不支持流式播放（MP4AACDemuxer 需要随机访问），等下载完后从文件播放
+        // 预缓冲足够且尚未开始播放 → 立即开始边下边播。
+        // M4A/MP4/AAC 需要随机访问，等下载完成后从文件播放。
         if (!isStreamUnsupportedFormat(fileName)
                 && !state.playbackStarted && state.bufferStream.getBufferedBytes() >= PREBUFFER_BYTES) {
             state.playbackStarted = true;
-            playFromStream(state.bufferStream, songName, state.latestServerElapsedMs);
+            playFromStream(state.bufferStream, songName, fileName, state.latestServerElapsedMs);
             showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §a缓冲完成，开始播放: §f") + songName);
         }
 
-        // 所有块接收完毕
         if (lastChunk || state.receivedChunks.get() >= totalChunks) {
             state.bufferStream.setWriteComplete();
             try {
@@ -259,23 +258,43 @@ public class ClientMusicManager {
                 MusicMod.LOGGER.error("Failed to move temp file to cache", e);
             }
 
-            // 下载完成后自动播放：
-            // - M4A/MP4/AAC：从缓存文件播放（需要随机访问，无法走流）
-            // - 其他格式：从内存流播放（文件太小时预缓冲阈值未达到的情况）
+            File playFile = finalFile.exists() ? finalFile : state.tempFile;
             if (!state.playbackStarted) {
                 state.playbackStarted = true;
-                if (isStreamUnsupportedFormat(fileName)) {
-                    File playFile = finalFile.exists() ? finalFile : state.tempFile;
-                    playFromCache(playFile, songName, state.latestServerElapsedMs);
-                } else {
-                    playFromStream(state.bufferStream, songName, state.latestServerElapsedMs);
-                }
+                playFromCache(playFile, songName, state.latestServerElapsedMs);
                 showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §a下载完成，开始播放: §f") + songName);
+            } else {
+                // 流式播放可能因格式误判/解码失败提前结束：稍等确认，
+                // 如果音频引擎没有在播也没有暂停，则从缓存文件补播。
+                scheduleStreamFallback(songName, playFile, state.latestServerElapsedMs);
             }
         }
     }
 
     // ==================== 播放控制 ====================
+
+    /** 流式播放未真正开始时，从完整缓存文件补播，避免“下载完成但没声音”。 */
+    private void scheduleStreamFallback(String songName, File file, long offsetMs) {
+        Thread check = new Thread(() -> {
+            try {
+                Thread.sleep(1200);
+            } catch (InterruptedException e) {
+                return;
+            }
+            Minecraft.getInstance().execute(() -> {
+                // 已经切歌/停止，或手动暂停：不要覆盖用户当前状态
+                if (!songName.equals(pendingSongName)) return;
+                String current = audioEngine.getCurrentSongName();
+                if (audioEngine.isPlaying() && songName.equals(current)) return;
+                if (audioEngine.isPaused() && songName.equals(current)) return;
+                if (audioEngine.isPlaying() && !songName.equals(current)) return;
+                playFromCache(file, songName, offsetMs);
+                showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §a已切换为文件播放: §f") + songName);
+            });
+        }, "MusicMod-StreamFallback");
+        check.setDaemon(true);
+        check.start();
+    }
 
     private void playFromCache(File file, String songName, long offsetMs) {
         // 在主线程外执行播放（音频播放是阻塞操作）
@@ -290,9 +309,9 @@ public class ClientMusicManager {
     /**
      * 从内存缓冲流播放（边下边播：数据不足时解码线程阻塞等待网络数据）
      */
-    private void playFromStream(InputStream stream, String songName, long offsetMs) {
+    private void playFromStream(InputStream stream, String songName, String fileName, long offsetMs) {
         Thread playThread = new Thread(() -> {
-            audioEngine.play(stream, songName, offsetMs, MusicModConfig.getClientVolume());
+            audioEngine.play(stream, songName, fileName, offsetMs, MusicModConfig.getClientVolume());
             syncStreamDurationToTags(songName);
         }, "MusicMod-Play");
         playThread.setDaemon(true);

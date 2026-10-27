@@ -2,6 +2,7 @@ package com.musicmod.audio;
 
 import com.musicmod.MusicMod;
 import javax.sound.sampled.*;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -85,8 +86,26 @@ public class AudioEngine {
      */
     private AudioInputStream openAudioInputStream(File file) throws Exception {
         String name = file.getName().toLowerCase();
+        // 按扩展名选择 reader，避免 Java Sound SPI 把 WAV/MP3 误判成其它格式。
         if (name.endsWith(".m4a") || name.endsWith(".mp4") || name.endsWith(".aac")) {
             return new AACFileReader().getAudioInputStream(file);
+        }
+        if (name.endsWith(".mp3")) {
+            return new javazoom.spi.mpeg.sampled.file.MpegAudioFileReader().getAudioInputStream(file);
+        }
+        if (name.endsWith(".ogg")) {
+            return new javazoom.spi.vorbis.sampled.file.VorbisAudioFileReader().getAudioInputStream(file);
+        }
+        if (name.endsWith(".flac")) {
+            return new org.jflac.sound.spi.FlacAudioFileReader().getAudioInputStream(file);
+        }
+        if (name.endsWith(".wav")) {
+            try {
+                return WavFileReader.open(file);
+            } catch (Exception e) {
+                MusicMod.LOGGER.debug("WavFileReader failed for {}, falling back to AudioSystem: {}",
+                        file.getName(), e.getMessage());
+            }
         }
         return AudioSystem.getAudioInputStream(file);
     }
@@ -99,10 +118,19 @@ public class AudioEngine {
      * @param volume 音量 0.0~1.0
      */
     public synchronized void play(InputStream input, String songName, long offsetMs, float volume) {
+        play(input, songName, "", offsetMs, volume);
+    }
+
+    /**
+     * 从网络流播放；按文件名扩展名选择 reader，避免 SPI 误判 WAV。
+     */
+    public synchronized void play(InputStream input, String songName, String fileName,
+                                  long offsetMs, float volume) {
         stopInternal();
         ensureContextClassLoader();
         try {
-            beginPlayback(AudioSystem.getAudioInputStream(input), songName, offsetMs, volume);
+            BufferedInputStream buffered = new BufferedInputStream(input, 1 << 20);
+            beginPlayback(openStreamAudioInputStream(buffered, fileName), songName, offsetMs, volume);
         } catch (UnsupportedAudioFileException e) {
             playing = false;
             MusicMod.LOGGER.error("Unsupported audio format: {}", songName, e);
@@ -113,6 +141,28 @@ public class AudioEngine {
             MusicMod.LOGGER.error("Failed to play audio: {}", songName, e);
             notifyError(songName, "播放失败: " + e.getMessage());
         }
+    }
+
+    private AudioInputStream openStreamAudioInputStream(InputStream input, String fileName) throws Exception {
+        String name = fileName == null ? "" : fileName.toLowerCase();
+        if (name.endsWith(".wav")) {
+            try {
+                return WavFileReader.open(input);
+            } catch (Exception e) {
+                MusicMod.LOGGER.debug("Stream WavFileReader failed, falling back to AudioSystem: {}", e.getMessage());
+                return AudioSystem.getAudioInputStream(input);
+            }
+        }
+        if (name.endsWith(".mp3")) {
+            return new javazoom.spi.mpeg.sampled.file.MpegAudioFileReader().getAudioInputStream(input);
+        }
+        if (name.endsWith(".ogg")) {
+            return new javazoom.spi.vorbis.sampled.file.VorbisAudioFileReader().getAudioInputStream(input);
+        }
+        if (name.endsWith(".flac")) {
+            return new org.jflac.sound.spi.FlacAudioFileReader().getAudioInputStream(input);
+        }
+        return AudioSystem.getAudioInputStream(input);
     }
 
     /**

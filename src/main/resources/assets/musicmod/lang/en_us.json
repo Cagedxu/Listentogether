@@ -318,5 +318,6 @@
   "随机播放": "Shuffle",
   "继续播放": "Continue",
   "停止播放": "Stop",
-  "暂停直到有人加入": "Pause until someone joins"
+  "暂停直到有人加入": "Pause until someone joins",
+  "§6♪ §a已切换为文件播放: §f": "§6♪ §aSwitched to file playback: §f"
 }
