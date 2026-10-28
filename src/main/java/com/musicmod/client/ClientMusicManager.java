@@ -54,6 +54,7 @@ public class ClientMusicManager {
 
     // 歌曲列表缓存
     private List<String> lastSongList = List.of();
+    private List<String> lastQueue = List.of();
     private String lastCurrentSong = "";
     private boolean lastPlaying = false;
     private boolean lastPaused = false;
@@ -189,10 +190,11 @@ public class ClientMusicManager {
     /**
      * 收到歌曲列表
      */
-    public void onSongListReceived(List<String> songs, String currentSong,
+    public void onSongListReceived(List<String> songs, List<String> queue, String currentSong,
                                    boolean isPlaying, boolean isPaused,
                                    PlayMode playMode) {
         this.lastSongList = songs;
+        this.lastQueue = queue == null ? List.of() : queue;
         this.lastCurrentSong = currentSong;
         this.lastPlaying = isPlaying;
         this.lastPaused = isPaused;
@@ -455,6 +457,10 @@ public class ClientMusicManager {
         if (mc.player != null) {
             mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(message));
         }
+    }
+
+    public List<String> getLastQueue() {
+        return lastQueue;
     }
 
     public List<String> getLastSongList() {

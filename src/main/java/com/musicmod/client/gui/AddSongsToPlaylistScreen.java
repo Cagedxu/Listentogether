@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
@@ -39,7 +40,7 @@ import java.util.Set;
 public class AddSongsToPlaylistScreen extends Screen {
 
     private static final int ROW_H = 16;
-    private static final int LIST_TOP = 36;
+    private static final int LIST_TOP = 54;
     /** 窄而高的面板宽度（x 短 y 长） */
     private static final int PANEL_W = 320;
 
@@ -51,6 +52,9 @@ public class AddSongsToPlaylistScreen extends Screen {
 
     private int scroll = 0;
     private int visibleRows = 1;
+
+    private EditBox searchBox;
+    private String searchFilter = "";
 
     private Button cancelBtn;
     private Button confirmBtn;
@@ -113,6 +117,15 @@ public class AddSongsToPlaylistScreen extends Screen {
             }
             all.sort(cmp);
         }
+        if (!searchFilter.isEmpty()) {
+            ClientTagStore tags = ClientTagStore.getInstance();
+            all.removeIf(song -> {
+                String q = searchFilter;
+                return !tags.displayTitle(song).toLowerCase().contains(q)
+                        && !tags.artist(song).toLowerCase().contains(q)
+                        && !song.toLowerCase().contains(q);
+            });
+        }
         return all;
     }
 
@@ -125,6 +138,16 @@ public class AddSongsToPlaylistScreen extends Screen {
                 .bounds(this.width / 2 + 4, this.height - 28, 88, 20).build();
         this.addRenderableWidget(cancelBtn);
         this.addRenderableWidget(confirmBtn);
+
+        searchBox = new EditBox(this.font, panelX() + 10, LIST_TOP - 18, panelW() - 20, 14,
+                Component.literal(Lang.tr("搜索")));
+        searchBox.setMaxLength(64);
+        searchBox.setHint(Component.literal(Lang.tr("§7搜索歌曲 / 歌手...")));
+        searchBox.setResponder(text -> {
+            searchFilter = text.trim().toLowerCase();
+            scroll = 0;
+        });
+        this.addRenderableWidget(searchBox);
     }
 
     @Override
@@ -138,6 +161,7 @@ public class AddSongsToPlaylistScreen extends Screen {
         if (confirmBtn != null) {
             confirmBtn.active = !pending.isEmpty();
         }
+        if (searchBox != null) searchBox.tick();
     }
 
     @Override
@@ -175,8 +199,10 @@ public class AddSongsToPlaylistScreen extends Screen {
         g.fill(x, y, x + w, y + h, 0x90000010);
 
         if (songs.isEmpty()) {
-            g.drawCenteredString(font, Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新"),
-                    x + w / 2, y + h / 2 - 4, 0xAAAAAA);
+            String empty = searchFilter.isEmpty()
+                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新")
+                    : Lang.tr("§7（无匹配歌曲）");
+            g.drawCenteredString(font, empty, x + w / 2, y + h / 2 - 4, 0xAAAAAA);
         } else {
             int maxScroll = Math.max(0, songs.size() - visibleRows);
             scroll = Math.max(0, Math.min(maxScroll, scroll));
@@ -279,7 +305,8 @@ public class AddSongsToPlaylistScreen extends Screen {
             return true;
         }
         if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
-                && !pending.isEmpty()) {
+                && !pending.isEmpty()
+                && (searchBox == null || !searchBox.isFocused())) {
             confirm();
             return true;
         }

@@ -13,8 +13,8 @@ import net.minecraftforge.network.simple.SimpleChannel;
  */
 public class NetworkHandler {
     // 协议版本：新增包或修改包结构时必须提升，避免新旧版本客户端/服务端混连导致解码错误。
-    // 4：新增歌单同步包与歌单操作包；5：歌单操作包支持批量添加歌曲。
-    private static final String PROTOCOL_VERSION = "5";
+    // 4：新增歌单同步包与歌单操作包；5：歌单操作包支持批量添加歌曲；6：歌曲列表包附带播放队列。
+    private static final String PROTOCOL_VERSION = "6";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MusicMod.MOD_ID, "main"),

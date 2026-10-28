@@ -36,7 +36,7 @@ import java.util.*;
  * <p>
  * 布局：左侧功能导航（全部歌曲/歌手/专辑/设置）+ 右侧内容区 + 底部播放栏。
  * 支持歌曲标签展示（标题/艺术家/专辑/时长）、封面、歌词、本地收藏。
- * 经典风格见 {@link MusicPlayerScreen}，可在设置中切换。
+ * 精简模式见 {@link MusicPlayerScreen}，可在设置中切换。
  */
 @OnlyIn(Dist.CLIENT)
 public class MusicAppScreen extends Screen {
@@ -192,7 +192,7 @@ public class MusicAppScreen extends Screen {
     }
 
     /**
-     * @param openPlaylists true 时直接打开歌单页（经典风格界面「歌单」按钮使用）
+     * @param openPlaylists true 时直接打开歌单页（保留参数，精简模式不再提供歌单入口）
      */
     public MusicAppScreen(boolean openPlaylists) {
         super(Component.literal(Lang.tr("一起听 · 音乐播放器")));
@@ -333,7 +333,7 @@ public class MusicAppScreen extends Screen {
         int nx = 4;
         int nw = SIDEBAR_W - 8;
         addNavButton(Lang.tr("♪ 全部歌曲"), nx, 8, nw, Nav.ALL);
-        addNavButton(Lang.tr("≡ 歌单"), nx, 32, nw, Nav.PLAYLIST);
+        addNavButton(Lang.tr("♫ 歌单"), nx, 32, nw, Nav.PLAYLIST);
         addNavButton(Lang.tr("🎤 歌手"), nx, 56, nw, Nav.ARTIST);
         addNavButton(Lang.tr("💿 专辑"), nx, 80, nw, Nav.ALBUM);
         addNavButton(Lang.tr("📄 歌曲详情"), nx, 104, nw, Nav.DETAIL);
@@ -354,7 +354,7 @@ public class MusicAppScreen extends Screen {
                 () -> sendAction(C2SMusicActionPacket.ACTION_PLAY_MODE));
         bx += PLAY_MODE_BTN_W + 2;
         // 0.14.0：刷新歌曲列表按钮（所有玩家可用，非 OP 限制）
-        refreshBtn = addBtn("⟳", bx, by, 20, this::requestSongList);
+        refreshBtn = addBtn("☰", bx, by, 20, this::openQueueScreen);
         volumeSlider = new VolumeSlider(bx + 24, by, 60, 20,
                 MusicModConfig.getClientVolume());
         this.addRenderableWidget(volumeSlider);
@@ -725,7 +725,7 @@ public class MusicAppScreen extends Screen {
     /** 歌单标题前缀（内置歌单使用专属图标） */
     private String playlistTitle(Playlist playlist) {
         String icon = ClientPlaylists.isFavorites(playlist.getId()) ? "❤ "
-                : ClientPlaylists.isRecent(playlist.getId()) ? "🕘 " : "≡ ";
+                : ClientPlaylists.isRecent(playlist.getId()) ? "🕘 " : "♫ ";
         return icon + Lang.tr(playlist.getName());
     }
 
@@ -1064,7 +1064,7 @@ public class MusicAppScreen extends Screen {
         }
         if (songs.isEmpty()) {
             String emptyMsg = searchFilter().isEmpty()
-                    ? Lang.tr("§7（列表为空，放入歌曲后点 ⟳ 刷新）") : Lang.tr("§7（无匹配结果）");
+                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Lang.tr("§7（无匹配结果）");
             g.drawCenteredString(font, emptyMsg, x + w / 2, y0 + h / 2 - 4, 0xAAAAAA);
         }
         drawScrollbar(g, songs.size(), rows, x, y0, w, h);
@@ -1148,7 +1148,7 @@ public class MusicAppScreen extends Screen {
             playlistDeleteConfirmId = null;
         }
 
-        g.drawString(font, Lang.tr("§e§l≡ 歌单"), x, 8, 0xFFFFFF);
+        g.drawString(font, Lang.tr("§e§l♫ 歌单"), x, 8, 0xFFFFFF);
         String countText = Lang.tr("§7共 ") + playlists.size() + Lang.tr(" 个歌单");
         g.drawString(font, countText, x + w - font.width(countText) - 4, 8, 0xAAAAAA);
 
@@ -1179,7 +1179,7 @@ public class MusicAppScreen extends Screen {
             if (selected) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, 0x80555577);
             else if (containsCurrent) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, 0x30226633);
             String icon = ClientPlaylists.isFavorites(playlist.getId()) ? "§c❤"
-                    : ClientPlaylists.isRecent(playlist.getId()) ? "§9🕘" : "§7≡";
+                    : ClientPlaylists.isRecent(playlist.getId()) ? "§9🕘" : "§7♫";
             g.drawString(font, icon, x + 6, rowY + 4, 0xFFFFFF);
             g.drawString(font, "§f" + truncate(font, Lang.tr(playlist.getName()), Math.max(40, listAreaW - 100)),
                     x + 24, rowY + 4, 0xF0F0F0);
@@ -1415,7 +1415,7 @@ public class MusicAppScreen extends Screen {
         List<Playlist> playlists = ClientPlaylists.getInstance().getAll();
         int listY = playlistPopupListY();
         if (playlists.isEmpty()) {
-            g.drawCenteredString(font, Lang.tr("§7还没有歌单，请先在「≡ 歌单」页创建"),
+            g.drawCenteredString(font, Lang.tr("§7还没有歌单，请先在「♫ 歌单」页创建"),
                     px + pw / 2, listY + 8, 0xAAAAAA);
         } else {
             int rows = playlistPopupRows();
@@ -2785,7 +2785,7 @@ public class MusicAppScreen extends Screen {
 
     private Component styleBtnText() {
         return Component.literal(MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? Lang.tr("播放器风格 (当前)") : Lang.tr("经典风格 (当前)"));
+                ? Lang.tr("播放器风格 (当前)") : Lang.tr("精简模式 (当前)"));
     }
 
     private Component hudBtnText() {
@@ -2856,6 +2856,10 @@ public class MusicAppScreen extends Screen {
 
     private void sendAction(byte action) {
         NetworkHandler.sendToServer(new C2SMusicActionPacket(action, ""));
+    }
+
+    private void openQueueScreen() {
+        Minecraft.getInstance().setScreen(new QueueScreen(this));
     }
 
     private void requestSongList() {

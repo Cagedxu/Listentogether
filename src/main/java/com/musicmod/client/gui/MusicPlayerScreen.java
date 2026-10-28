@@ -24,11 +24,11 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 一起听播放器界面（经典风格）。
+ * 一起听播放器界面（精简模式）。
  * <p>
  * 功能：
  * - 显示服务器歌曲列表（可滚动、可选中、双击播放）
- * - 播放控制：上一首 / 播放暂停 / 停止 / 下一首 / 刷新（OP 限定）
+ * - 播放控制：上一首 / 播放暂停 / 停止 / 下一首 / 队列列表
  * - 个人音量滑块（客户端配置，实时生效）
  * - 随机 / 连播开关（OP 限定，状态同步自服务器）
  * - 进入配置界面（修改模组全部可编辑配置）
@@ -72,7 +72,7 @@ public class MusicPlayerScreen extends Screen {
     private VolumeSlider volumeSlider;
 
     public MusicPlayerScreen() {
-        super(Component.literal(Lang.tr("一起听 · 播放器")));
+        super(Component.literal(Lang.tr("一起听 · 精简模式")));
     }
 
     private boolean isOp() {
@@ -110,7 +110,7 @@ public class MusicPlayerScreen extends Screen {
         nextBtn = addBtn("⏭", bx, btnY, btnW,
                 () -> sendAction(C2SMusicActionPacket.ACTION_NEXT));
         bx += btnW + gap;
-        refreshBtn = addBtn("⟳", bx, btnY, btnW, this::requestSongList);
+        refreshBtn = addBtn("☰", bx, btnY, btnW, this::openQueueScreen);
 
         if (!op) {
             prevBtn.active = false;
@@ -142,14 +142,11 @@ public class MusicPlayerScreen extends Screen {
         int tY = volY + 24;
         int tW = 60;
         boolean singleplayer = Minecraft.getInstance().getSingleplayerServer() != null;
-        int tCount = singleplayer ? 5 : 6;
+        int tCount = singleplayer ? 4 : 5;
         int tTotal = tW * tCount + gap * (tCount - 1);
         int tx = cx - tTotal / 2;
         playModeBtn = addBtn(Lang.tr("顺序播放"), tx, tY, tW,
                 () -> sendAction(C2SMusicActionPacket.ACTION_PLAY_MODE));
-        tx += tW + gap;
-        Button playlistBtn = addBtn(Lang.tr("≡ 歌单"), tx, tY, tW,
-                () -> Minecraft.getInstance().setScreen(new MusicAppScreen(true)));
         tx += tW + gap;
         Button styleBtn = addBtn(Lang.tr("♪ 播放器"), tx, tY, tW, () -> {
             MusicModConfig.setUiStyle(MusicModConfig.UiStyle.PLAYER);
@@ -261,7 +258,7 @@ public class MusicPlayerScreen extends Screen {
         // 空列表提示
         if (displaySongs.isEmpty()) {
             String emptyMsg = searchFilter.isEmpty()
-                    ? Lang.tr("§7（列表为空，放入歌曲后点 ⟳ 刷新）") : Lang.tr("§7（无匹配歌曲）");
+                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Lang.tr("§7（无匹配歌曲）");
             guiGraphics.drawCenteredString(font, emptyMsg, cx, LIST_Y + listH / 2 - 4, 0xAAAAAA);
         }
 
@@ -512,6 +509,10 @@ public class MusicPlayerScreen extends Screen {
             case DURATION: return Lang.tr("时长");
             default: return Lang.tr("标题");
         }
+    }
+
+    private void openQueueScreen() {
+        Minecraft.getInstance().setScreen(new QueueScreen(this));
     }
 
     private void requestSongList() {

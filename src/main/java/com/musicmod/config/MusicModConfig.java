@@ -44,7 +44,7 @@ public class MusicModConfig {
                     .comment("左上角 HUD 显示模式：CARD = 卡片（默认，封面+歌名+作者+歌词），LYRICS = 歌词，SONG_NAME = 歌曲名称，OFF = 不显示")
                     .defineEnum("hudMode", HudMode.CARD);
             uiStyle = builder
-                    .comment("播放器界面风格：PLAYER = 播放器风格（默认，左侧导航+歌手/专辑/歌词/封面），CLASSIC = 经典风格（紧凑列表）")
+                    .comment("播放器界面风格：PLAYER = 播放器风格（默认，左侧导航+歌手/专辑/歌词/封面），CLASSIC = 精简模式（紧凑列表）")
                     .defineEnum("uiStyle", UiStyle.PLAYER);
             showTranslation = builder
                     .comment("歌词详情中是否显示翻译歌词（双语 LRC 中相同时间戳的第二行）")
@@ -84,7 +84,7 @@ public class MusicModConfig {
     public enum UiStyle {
         /** 播放器风格：左侧功能导航 + 歌手/专辑/歌单/歌词/封面 */
         PLAYER,
-        /** 经典风格：紧凑歌曲列表 */
+        /** 精简模式：紧凑歌曲列表 */
         CLASSIC
     }
 

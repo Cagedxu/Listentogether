@@ -24,7 +24,7 @@ import java.io.File;
  * 一起听配置界面（0.25.2：同步播放器风格设置页所有配置选项）。
  * <p>
  * 通过 Forge {@code ConfigScreenHandler.ConfigScreenFactory} 注册，
- * 可从模组列表的Lang.tr("配置")按钮打开，也可从经典风格播放器界面进入。
+ * 可从模组列表的Lang.tr("配置")按钮打开，也可从精简模式播放器界面进入。
  * <p>
  * 客户端配置随时可改；单人游戏配置（歌曲目录、播放模式等）在本地修改，
  * 多人游戏中服务器配置由服主在服务端文件中编辑（上传/无人行为除外）。
@@ -380,7 +380,7 @@ public class MusicModConfigScreen extends Screen {
 
     private Component styleBtnText() {
         return Component.literal(Lang.tr("界面风格: ") + (MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? Lang.tr("播放器风格") : Lang.tr("经典风格")));
+                ? Lang.tr("播放器风格") : Lang.tr("精简模式")));
     }
 
     private Component hudBtnText() {

@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * 服务器 -> 客户端：发送可用歌曲列表及当前播放状态。
- * 包含播放模式，供播放器 GUI 显示。
+ * 服务器 -> 客户端：发送可用歌曲列表、当前播放队列及当前播放状态。
  */
 public class S2CSongListPacket {
     private final List<String> songs;
@@ -21,10 +20,12 @@ public class S2CSongListPacket {
     private final boolean isPlaying;
     private final boolean isPaused;
     private final PlayMode playMode;
+    private final List<String> queue;
 
-    public S2CSongListPacket(List<String> songs, String currentSong, boolean isPlaying,
-                             boolean isPaused, PlayMode playMode) {
+    public S2CSongListPacket(List<String> songs, List<String> queue, String currentSong,
+                             boolean isPlaying, boolean isPaused, PlayMode playMode) {
         this.songs = songs;
+        this.queue = queue;
         this.currentSong = currentSong;
         this.isPlaying = isPlaying;
         this.isPaused = isPaused;
@@ -41,6 +42,11 @@ public class S2CSongListPacket {
         this.isPlaying = buf.readBoolean();
         this.isPaused = buf.readBoolean();
         this.playMode = PlayMode.fromName(buf.readUtf(32));
+        int queueCount = buf.readVarInt();
+        this.queue = new ArrayList<>(queueCount);
+        for (int i = 0; i < queueCount; i++) {
+            this.queue.add(buf.readUtf(256));
+        }
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -52,13 +58,17 @@ public class S2CSongListPacket {
         buf.writeBoolean(isPlaying);
         buf.writeBoolean(isPaused);
         buf.writeUtf(playMode.name(), 32);
+        buf.writeVarInt(queue.size());
+        for (String song : queue) {
+            buf.writeUtf(song, 256);
+        }
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
                     ClientMusicManager.getInstance().onSongListReceived(
-                            songs, currentSong, isPlaying, isPaused, playMode));
+                            songs, queue, currentSong, isPlaying, isPaused, playMode));
         });
         ctx.get().setPacketHandled(true);
     }
@@ -68,4 +78,5 @@ public class S2CSongListPacket {
     public boolean isPlaying() { return isPlaying; }
     public boolean isPaused() { return isPaused; }
     public PlayMode getPlayMode() { return playMode; }
+    public List<String> getQueue() { return queue; }
 }
