@@ -60,7 +60,7 @@ public class AddSongsToPlaylistScreen extends Screen {
     private Button confirmBtn;
 
     public AddSongsToPlaylistScreen(Screen parent, String playlistId) {
-        super(Component.literal(Lang.tr("一起听 · 添加歌曲")));
+        super(Component.literal(Theme.tr("一起听 · 添加歌曲")));
         this.parent = parent;
         this.playlistId = playlistId == null ? "" : playlistId;
     }
@@ -132,17 +132,19 @@ public class AddSongsToPlaylistScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        cancelBtn = Button.builder(Component.literal(Lang.tr("取消")), b -> onClose())
+        this.font = ModFonts.get();
+        cancelBtn = Button.builder(Component.literal(Theme.tr("取消")), b -> onClose())
                 .bounds(this.width / 2 - 92, this.height - 28, 88, 20).build();
-        confirmBtn = Button.builder(Component.literal(Lang.tr("确定")), b -> confirm())
+        confirmBtn = Button.builder(Component.literal(Theme.tr("确定")), b -> confirm())
                 .bounds(this.width / 2 + 4, this.height - 28, 88, 20).build();
         this.addRenderableWidget(cancelBtn);
         this.addRenderableWidget(confirmBtn);
 
-        searchBox = new EditBox(this.font, panelX() + 10, LIST_TOP - 18, panelW() - 20, 14,
-                Component.literal(Lang.tr("搜索")));
+        searchBox = new BorderedEditBox(this.font, panelX() + 10, LIST_TOP - 18, panelW() - 20, 14,
+                Component.literal(Theme.tr("搜索")));
         searchBox.setMaxLength(64);
-        searchBox.setHint(Component.literal(Lang.tr("§7搜索歌曲 / 歌手...")));
+        searchBox.setBordered(false);
+        searchBox.setHint(Component.literal(Theme.tr("§7搜索歌曲 / 歌手...")));
         searchBox.setResponder(text -> {
             searchFilter = text.trim().toLowerCase();
             scroll = 0;
@@ -186,23 +188,23 @@ public class AddSongsToPlaylistScreen extends Screen {
         visibleRows = Math.max(1, h / ROW_H);
 
         // 顶部标题 / 说明 / 计数（限制在窄面板内）
-        g.drawString(font, Lang.tr("§e§l添加歌曲到「")
-                + truncate(font, Lang.tr(target.getName()), Math.max(40, w - 110)) + "」",
-                x + 10, 8, 0xFFFFFF);
-        String count = Lang.tr("§7共 ") + songs.size() + Lang.tr(" 首");
-        g.drawString(font, count, x + w - font.width(count) - 10, 8, 0xAAAAAA);
-        String sub = favorites() ? Lang.tr("§7勾选后点「确定」加入收藏") : Lang.tr("§7勾选后点「确定」加入歌单");
-        g.drawString(font, sub, x + 10, 22, 0xAAAAAA);
+        g.drawString(font, Theme.tr("§e添加歌曲到「")
+                + truncate(font, Theme.tr(target.getName()), Math.max(40, w - 110)) + "」",
+                x + 10, 8, Theme.c(0xFFFFFF), false);
+        String count = Theme.tr("§7共 ") + songs.size() + Theme.tr(" 首");
+        g.drawString(font, count, x + w - font.width(count) - 10, 8, Theme.c(0xAAAAAA), false);
+        String sub = favorites() ? Theme.tr("§7勾选后点「确定」加入收藏") : Theme.tr("§7勾选后点「确定」加入歌单");
+        g.drawString(font, sub, x + 10, 22, Theme.c(0xAAAAAA), false);
 
         // 窄而高的列表面板（与播放器其它页面同一色调）
-        g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF4A4A60);
-        g.fill(x, y, x + w, y + h, 0x90000010);
+        g.fill(x - 1, y - 1, x + w + 1, y + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, y, x + w, y + h, Theme.listBg());
 
         if (songs.isEmpty()) {
             String empty = searchFilter.isEmpty()
-                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新")
-                    : Lang.tr("§7（无匹配歌曲）");
-            g.drawCenteredString(font, empty, x + w / 2, y + h / 2 - 4, 0xAAAAAA);
+                    ? Theme.tr("§7歌曲列表为空，请先放入歌曲并刷新")
+                    : Theme.tr("§7（无匹配歌曲）");
+            UiText.centered(g, font, empty, x + w / 2, y + h / 2 - 4, Theme.c(0xAAAAAA));
         } else {
             int maxScroll = Math.max(0, songs.size() - visibleRows);
             scroll = Math.max(0, Math.min(maxScroll, scroll));
@@ -215,12 +217,12 @@ public class AddSongsToPlaylistScreen extends Screen {
                 int rowY = y + i * ROW_H;
                 boolean hover = mouseX >= x && mouseX <= x + w
                         && mouseY >= rowY && mouseY < rowY + ROW_H;
-                if (hover) g.fill(x, rowY, x + w, rowY + ROW_H - 1, 0x80555577);
+                if (hover) g.fill(x, rowY, x + w, rowY + ROW_H - 1, Theme.c(0x80555577));
                 String song = songs.get(idx);
                 boolean already = target.contains(song);
                 boolean isPending = pending.contains(song);
                 String check = already ? "§8☑" : isPending ? "§b☑" : "§7☐";
-                g.drawString(font, check, x + 8, rowY + 4, 0xFFFFFF);
+                g.drawString(font, check, x + 8, rowY + 4, Theme.c(0xFFFFFF), false);
                 String display = tags.displayTitle(song);
                 String artist = tags.artist(song);
                 if (!artist.isEmpty()) {
@@ -228,11 +230,11 @@ public class AddSongsToPlaylistScreen extends Screen {
                 }
                 g.drawString(font, (already ? "§8" : "§f")
                                 + truncate(font, display, titleMax),
-                        titleX, rowY + 4, already ? 0x888888 : 0xF0F0F0);
-                String status = already ? Lang.tr("§a✓ 已添加") : isPending ? Lang.tr("§b待添加") : "";
+                        titleX, rowY + 4, already ? Theme.c(0x888888) : Theme.c(0xF0F0F0), false);
+                String status = already ? Theme.tr("§a✓ 已添加") : isPending ? Theme.tr("§b待添加") : "";
                 if (!status.isEmpty()) {
                     g.drawString(font, status, x + w - font.width(status) - 12,
-                            rowY + 4, already ? 0x55FF55 : 0x55FFFF);
+                            rowY + 4, already ? Theme.c(0x55FF55) : Theme.c(0x55FFFF), false);
                 }
             }
             if (maxScroll > 0) {
@@ -240,18 +242,24 @@ public class AddSongsToPlaylistScreen extends Screen {
                 float ratio = (float) scroll / maxScroll;
                 int barH = Math.max(12, h * visibleRows / songs.size());
                 int barY = y + (int) ((h - barH) * ratio);
-                g.fill(barX, y, barX + 4, y + h, 0x40000000);
-                g.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
+                g.fill(barX, y, barX + 4, y + h, Theme.c(0x40000000));
+                g.fill(barX, barY, barX + 4, barY + barH, Theme.c(0xFFAAAAAA));
             }
         }
 
         // 底部：已勾选数量（取消 / 确定按钮为真实控件，在 super.render 中绘制）
-        g.drawString(font, Lang.tr("§7已勾选 §e") + pending.size() + Lang.tr(" §7首"),
-                x + 10, this.height - 16, 0xAAAAAA);
+        g.drawString(font, Theme.tr("§7已勾选 §e") + pending.size() + Theme.tr(" §7首"),
+                x + 10, this.height - 16, Theme.c(0xAAAAAA), false);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (searchBox != null && searchBox.visible
+                && !(mouseX >= searchBox.getX() && mouseX < searchBox.getX() + searchBox.getWidth()
+                && mouseY >= searchBox.getY() && mouseY < searchBox.getY() + searchBox.getHeight())) {
+            searchBox.setFocused(false);
+            if (getFocused() instanceof EditBox) setFocused(null);
+        }
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         if (button != 0) return false;
         int mx = (int) mouseX, my = (int) mouseY;

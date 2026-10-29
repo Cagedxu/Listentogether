@@ -36,10 +36,11 @@ public class UploadPathScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        this.font = ModFonts.get();
         int cx = this.width / 2;
         int cy = this.height / 2;
 
-        pathBox = new EditBox(this.font, cx - 150, cy - 12, 300, 20,
+        pathBox = new BorderedEditBox(this.font, cx - 150, cy - 12, 300, 20,
                 Component.literal(Lang.tr("音乐文件路径")));
         pathBox.setMaxLength(1024);
         pathBox.setHint(Component.literal(Lang.tr("§7例如 C:\\Music\\song.mp3")));
@@ -104,13 +105,13 @@ public class UploadPathScreen extends Screen {
         g.fill(cx - 172, cy - 62, cx + 172, cy + 92, 0xFF4A4A60);
         g.fill(cx - 171, cy - 61, cx + 171, cy + 91, 0xF0161626);
 
-        g.drawCenteredString(this.font, Lang.tr("§e§l一起听 · 上传音乐"), cx, cy - 52, 0xFFFFFF);
-        g.drawCenteredString(this.font, Lang.tr("§7系统文件选择器不可用，请粘贴本地音乐文件完整路径："),
+        UiText.centered(g, this.font, Lang.tr("§e§l一起听 · 上传音乐"), cx, cy - 52, 0xFFFFFF);
+        UiText.centered(g, this.font, Lang.tr("§7系统文件选择器不可用，请粘贴本地音乐文件完整路径："),
                 cx, cy - 36, 0xAAAAAA);
-        g.drawCenteredString(this.font, Lang.tr("§8支持 MP3 / OGG / FLAC / WAV / M4A 等格式"),
+        UiText.centered(g, this.font, Lang.tr("§8支持 MP3 / OGG / FLAC / WAV / M4A 等格式"),
                 cx, cy - 24, 0x888888);
         if (!error.isEmpty()) {
-            g.drawCenteredString(this.font, "§c" + error, cx, cy + 12, 0xFF5555);
+            UiText.centered(g, this.font, "§c" + error, cx, cy + 12, 0xFF5555);
         }
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -127,6 +128,17 @@ public class UploadPathScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (pathBox != null && pathBox.visible
+                && !(mouseX >= pathBox.getX() && mouseX < pathBox.getX() + pathBox.getWidth()
+                && mouseY >= pathBox.getY() && mouseY < pathBox.getY() + pathBox.getHeight())) {
+            pathBox.setFocused(false);
+            if (getFocused() instanceof EditBox) setFocused(null);
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

@@ -84,6 +84,7 @@ public class MusicAppScreen extends Screen {
     private String selectedSong = null;   // 选中的歌曲名
     private String detailSong = null;     // 详情面板显示的歌曲名（null=面板关闭）
     private int scrollOffset = 0;
+    private boolean scrollToCurrentPending = true;
     private long lastClickTime = 0;
     private String lastClickedSong = null;
 
@@ -93,6 +94,7 @@ public class MusicAppScreen extends Screen {
 
     // 设置页控件
     private Button styleBtn, hudBtn, settingsPlayModeBtn, applyDirBtn, translationBtn;
+    private Button queueShowPlayedBtn, themeBtn;
     private Button noteIconBtn, openSongsDirBtn, openCacheDirBtn, uploadBtn;
     private Button lyricsAlignBtn, emptyServerBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
@@ -195,7 +197,7 @@ public class MusicAppScreen extends Screen {
      * @param openPlaylists true 时直接打开歌单页（保留参数，精简模式不再提供歌单入口）
      */
     public MusicAppScreen(boolean openPlaylists) {
-        super(Component.literal(Lang.tr("一起听 · 音乐播放器")));
+        super(Component.literal(Theme.tr("一起听 · 音乐播放器")));
         if (openPlaylists) {
             this.nav = Nav.PLAYLIST;
         }
@@ -327,17 +329,19 @@ public class MusicAppScreen extends Screen {
         this.height = uiH;
 
         super.init();
+        this.font = ModFonts.get();
+        scrollToCurrentPending = true;
         singleplayer = Minecraft.getInstance().getSingleplayerServer() != null;
 
         // ---- 左侧导航 ----
         int nx = 4;
         int nw = SIDEBAR_W - 8;
-        addNavButton(Lang.tr("♪ 全部歌曲"), nx, 8, nw, Nav.ALL);
-        addNavButton(Lang.tr("♫ 歌单"), nx, 32, nw, Nav.PLAYLIST);
-        addNavButton(Lang.tr("🎤 歌手"), nx, 56, nw, Nav.ARTIST);
-        addNavButton(Lang.tr("💿 专辑"), nx, 80, nw, Nav.ALBUM);
-        addNavButton(Lang.tr("📄 歌曲详情"), nx, 104, nw, Nav.DETAIL);
-        addNavButton(Lang.tr("⚙ 设置"), nx, 128, nw, Nav.SETTINGS);
+        addNavButton(Theme.tr("♪ 歌曲"), nx, 8, nw, Nav.ALL);
+        addNavButton(Theme.tr("♫ 歌单"), nx, 32, nw, Nav.PLAYLIST);
+        addNavButton(Theme.tr("🎤 歌手"), nx, 56, nw, Nav.ARTIST);
+        addNavButton(Theme.tr("💿 专辑"), nx, 80, nw, Nav.ALBUM);
+        addNavButton(Theme.tr("📄 详情"), nx, 104, nw, Nav.DETAIL);
+        addNavButton(Theme.tr("⚙ 设置"), nx, 128, nw, Nav.SETTINGS);
 
         // ---- 底部播放栏 ----
         int by = playerBarY() + 9;
@@ -489,14 +493,31 @@ public class MusicAppScreen extends Screen {
         }).bounds(btnX, LIST_TOP + 290, btnW, 20).build();
         this.addRenderableWidget(detailDblClickPlayBtn);
 
+        queueShowPlayedBtn = Button.builder(queueShowPlayedBtnText(), btn -> {
+            MusicModConfig.setQueueShowPlayed(!MusicModConfig.getQueueShowPlayed());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(queueShowPlayedBtnText());
+        }).bounds(btnX, LIST_TOP + 316, btnW, 20).build();
+        this.addRenderableWidget(queueShowPlayedBtn);
+
+        themeBtn = Button.builder(themeBtnText(), btn -> {
+            MusicModConfig.UiTheme next = MusicModConfig.getUiTheme() == MusicModConfig.UiTheme.DARK
+                    ? MusicModConfig.UiTheme.LIGHT : MusicModConfig.UiTheme.DARK;
+            MusicModConfig.setUiTheme(next);
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(themeBtnText());
+        }).bounds(btnX, LIST_TOP + 342, btnW, 20).build();
+        this.addRenderableWidget(themeBtn);
+
         if (singleplayer) {
-            songsDirBox = new EditBox(this.font, sx, LIST_TOP + 328, sw, 20,
-                    Component.literal(Lang.tr("歌曲目录")));
+            songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 380, sw, 20,
+                    Component.literal(Theme.tr("歌曲目录")));
             songsDirBox.setMaxLength(256);
+            songsDirBox.setBordered(false);
             songsDirBox.setValue(MusicModConfig.getServerSongsDir());
             this.addRenderableWidget(songsDirBox);
 
-            applyDirBtn = Button.builder(Component.literal(Lang.tr("应用目录并重新扫描")), btn -> {
+            applyDirBtn = Button.builder(Component.literal(Theme.tr("应用目录并重新扫描")), btn -> {
                 String dir = songsDirBox.getValue().trim();
                 if (!dir.isEmpty()) {
                     MusicModConfig.setServerSongsDir(dir);
@@ -504,13 +525,13 @@ public class MusicAppScreen extends Screen {
                     com.musicmod.server.MusicServerManager.getInstance().reloadLibrary(dir);
                     requestSongList();
                 }
-            }).bounds(sx, LIST_TOP + 352, sw - 84, 20).build();
+            }).bounds(sx, LIST_TOP + 404, sw - 84, 20).build();
             this.addRenderableWidget(applyDirBtn);
 
             // 打开歌曲文件夹（本地游戏歌曲目录）
-            openSongsDirBtn = Button.builder(Component.literal(Lang.tr("§b📂 打开文件夹")), btn -> {
+            openSongsDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开文件夹")), btn -> {
                 openFolder(resolveSongsDir());
-            }).bounds(sx + sw - 80, LIST_TOP + 352, 80, 20).build();
+            }).bounds(sx + sw - 80, LIST_TOP + 404, 80, 20).build();
             this.addRenderableWidget(openSongsDirBtn);
 
             settingsPlayModeBtn = Button.builder(playModeBtnText(), btn -> {
@@ -519,17 +540,17 @@ public class MusicAppScreen extends Screen {
                 MusicModConfig.saveServerConfig();
                 com.musicmod.server.MusicServerManager.getInstance().setPlayMode(next);
                 btn.setMessage(playModeBtnText());
-            }).bounds(btnX, LIST_TOP + 394, btnW, 20).build();
+            }).bounds(btnX, LIST_TOP + 446, btnW, 20).build();
             this.addRenderableWidget(settingsPlayModeBtn);
         } else {
             // 多人游戏：打开客户端缓存歌曲文件夹
-            openCacheDirBtn = Button.builder(Component.literal(Lang.tr("§b📂 打开缓存歌曲文件夹")), btn -> {
+            openCacheDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开缓存歌曲文件夹")), btn -> {
                 openFolder(new File(Minecraft.getInstance().gameDirectory, "musicmod_cache"));
-            }).bounds(sx, LIST_TOP + 316, sw, 20).build();
+            }).bounds(sx, LIST_TOP + 380, sw, 20).build();
             this.addRenderableWidget(openCacheDirBtn);
 
             // 多人游戏：OP 上传音乐文件到服务器（固定在设置页右上角，不随滚动隐藏）
-            uploadBtn = Button.builder(Component.literal(Lang.tr("§a⬆ 上传音乐")), btn -> {
+            uploadBtn = Button.builder(Component.literal(Theme.tr("§a⬆ 上传音乐")), btn -> {
                 com.musicmod.client.ClientFileUploader.openUploadDialog();
             }).bounds(0, 0, 90, 20).build();
             this.addRenderableWidget(uploadBtn);
@@ -546,31 +567,31 @@ public class MusicAppScreen extends Screen {
                     btn.setMessage(emptyServerBtnText());
                     NetworkHandler.sendToServer(new C2SMusicActionPacket(
                             C2SMusicActionPacket.ACTION_SET_EMPTY_BEHAVIOR, next.name()));
-                }).bounds(sx, LIST_TOP + 368, sw, 20).build();
+                }).bounds(sx, LIST_TOP + 432, sw, 20).build();
                 this.addRenderableWidget(emptyServerBtn);
             }
         }
 
         // ---- 歌单页右侧「新建 / 编辑」面板控件（位置在 render 中按窗口宽度计算） ----
-        playlistNameBox = new EditBox(this.font, 0, LIST_TOP + 22, 160, 18,
-                Component.literal(Lang.tr("歌单名称")));
+        playlistNameBox = new BorderedEditBox(this.font, 0, LIST_TOP + 22, 160, 18,
+                Component.literal(Theme.tr("歌单名称")));
         playlistNameBox.setMaxLength(PlaylistLibrary.MAX_NAME_LENGTH);
-        playlistNameBox.setHint(Component.literal(Lang.tr("§7输入歌单名称")));
+        playlistNameBox.setHint(Component.literal(Theme.tr("§7输入歌单名称")));
         playlistNameBox.setVisible(false);
         this.addRenderableWidget(playlistNameBox);
 
-        playlistCreateBtn = addBtn(Lang.tr("新建歌单"), 0, LIST_TOP + 44, 160,
+        playlistCreateBtn = addBtn(Theme.tr("新建歌单"), 0, LIST_TOP + 44, 160,
                 this::createPlaylistFromInput);
-        playlistRenameBtn = addBtn(Lang.tr("重命名"), 0, LIST_TOP + 68, 80,
+        playlistRenameBtn = addBtn(Theme.tr("重命名"), 0, LIST_TOP + 68, 80,
                 this::renameSelectedPlaylist);
-        playlistDeleteBtn = addBtn(Lang.tr("删除"), 0, LIST_TOP + 68, 80,
+        playlistDeleteBtn = addBtn(Theme.tr("删除"), 0, LIST_TOP + 68, 80,
                 this::deleteSelectedPlaylist);
         playlistCreateBtn.visible = false;
         playlistRenameBtn.visible = false;
         playlistDeleteBtn.visible = false;
 
         // 0.27.0：搜索框（右上角放大镜图标点击后展开，初始隐藏）
-        searchBox = new EditBox(this.font, 0, 0, 100, 14, Component.literal(Lang.tr("搜索"))) {
+        searchBox = new BorderedEditBox(this.font, 0, 0, 100, 14, Component.literal(Theme.tr("搜索"))) {
             @Override
             public boolean mouseClicked(double mx, double my, int btn) {
                 // 搜索框自身可点击聚焦
@@ -578,6 +599,7 @@ public class MusicAppScreen extends Screen {
             }
         };
         searchBox.setMaxLength(64);
+        searchBox.setBordered(false);
         searchBox.setVisible(false);
         this.addRenderableWidget(searchBox);
 
@@ -586,7 +608,7 @@ public class MusicAppScreen extends Screen {
     }
 
     private Button addNavButton(String text, int x, int y, int w, Nav target) {
-        Button b = Button.builder(Component.literal(text), btn -> {
+        Button b = new CardButton(x, y, w, 20, Component.literal(text), btn -> {
             closeSearch(); // 0.28.2：界面跳转时收起搜索框
             // 切换导航时退出歌单详情/弹窗，避免残留状态
             openedPlaylistId = null;
@@ -607,13 +629,14 @@ public class MusicAppScreen extends Screen {
                 return;
             }
             nav = target;
+            if (target == Nav.ALL) scrollToCurrentPending = true;
             subPage = null;
             selectedSong = null;
             scrollOffset = 0;
             settingsScroll = 0;
             detailSong = null;  // 切换导航时关闭详情面板，允许直接跳转歌手/专辑
             resetDetailStates();
-        }).bounds(x, y, w, 20).build();
+        });
         this.addRenderableWidget(b);
         return b;
     }
@@ -629,8 +652,7 @@ public class MusicAppScreen extends Screen {
     }
 
     private Button addBtn(String text, int x, int y, int w, Runnable action) {
-        Button b = Button.builder(Component.literal(text), btn -> action.run())
-                .bounds(x, y, w, 20).build();
+        Button b = new CardButton(x, y, w, 20, Component.literal(text), btn -> action.run());
         this.addRenderableWidget(b);
         return b;
     }
@@ -648,7 +670,7 @@ public class MusicAppScreen extends Screen {
         com.musicmod.PlayMode pm = mgr.getLastPlayMode();
         String modeLabel = pm.getDisplayName();
         if (modeLabel == null || modeLabel.isBlank()) modeLabel = pm.name();
-        playModeBtn.setMessage(Component.literal(playModeChatColor(pm) + modeLabel));
+        playModeBtn.setMessage(Component.literal(modeLabel));
         if (songsDirBox != null) songsDirBox.tick();
         // 0.27.0：搜索框光标闪烁
         if (searchBox != null) searchBox.tick();
@@ -671,7 +693,7 @@ public class MusicAppScreen extends Screen {
                 selectedSong = null;
                 if (playlistNameBox != null && opened != null) {
                     playlistNameBox.setValue(ClientPlaylists.isBuiltIn(opened.getId())
-                            ? "" : Lang.tr(opened.getName()));
+                            ? "" : Theme.tr(opened.getName()));
                 }
                 return true;
             }
@@ -726,7 +748,7 @@ public class MusicAppScreen extends Screen {
     private String playlistTitle(Playlist playlist) {
         String icon = ClientPlaylists.isFavorites(playlist.getId()) ? "❤ "
                 : ClientPlaylists.isRecent(playlist.getId()) ? "🕘 " : "♫ ";
-        return icon + Lang.tr(playlist.getName());
+        return icon + Theme.tr(playlist.getName());
     }
 
     /** 0.28.0：按配置的排序模式排序歌曲列表（0.28.1：默认 TITLE，始终排序） */
@@ -764,11 +786,11 @@ public class MusicAppScreen extends Screen {
     /** 0.28.0：排序模式显示名 */
     private static String sortModeName() {
         switch (MusicModConfig.getSortMode()) {
-            case TITLE: return Lang.tr("标题");
-            case ARTIST: return Lang.tr("歌手");
-            case ALBUM: return Lang.tr("专辑");
-            case DURATION: return Lang.tr("时长");
-            default: return Lang.tr("标题");
+            case TITLE: return Theme.tr("标题");
+            case ARTIST: return Theme.tr("歌手");
+            case ALBUM: return Theme.tr("专辑");
+            case DURATION: return Theme.tr("时长");
+            default: return Theme.tr("标题");
         }
     }
 
@@ -813,7 +835,7 @@ public class MusicAppScreen extends Screen {
         for (String s : allSongs()) {
             String artist = ClientTagStore.getInstance().artist(s);
             if (artist.isEmpty()) {
-                map.computeIfAbsent(Lang.tr("未知艺术家"), k -> new ArrayList<>()).add(s);
+                map.computeIfAbsent(Theme.tr("未知艺术家"), k -> new ArrayList<>()).add(s);
                 continue;
             }
             // 按 "/" 或全角 "／" 拆分多位歌手，歌曲同时归属每个人
@@ -827,7 +849,7 @@ public class MusicAppScreen extends Screen {
                 }
             }
             if (!added) {
-                map.computeIfAbsent(Lang.tr("未知艺术家"), k -> new ArrayList<>()).add(s);
+                map.computeIfAbsent(Theme.tr("未知艺术家"), k -> new ArrayList<>()).add(s);
             }
         }
         return map;
@@ -838,7 +860,7 @@ public class MusicAppScreen extends Screen {
         Map<String, List<String>> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (String s : allSongs()) {
             String album = ClientTagStore.getInstance().album(s);
-            String key = album.isEmpty() ? Lang.tr("未知专辑") : album;
+            String key = album.isEmpty() ? Theme.tr("未知专辑") : album;
             map.computeIfAbsent(key, k -> new ArrayList<>()).add(s);
         }
         return map;
@@ -859,13 +881,17 @@ public class MusicAppScreen extends Screen {
 
         renderBackground(g);
 
-        // 左侧边栏背景
-        g.fill(0, 0, SIDEBAR_W, playerBarY(), 0xC0161626);
-        g.fill(SIDEBAR_W, 0, SIDEBAR_W + 1, playerBarY(), 0xFF3A3A50);
+        // 左侧边栏 / 内容区 / 播放栏：深色模式使用不透明底色，避免透出游戏后整体过深
+        boolean light = Theme.isLight();
+        int sidebarBg = light ? Theme.c(0xC0161626) : 0xFF1E1E2F;
+        int contentBg = light ? Theme.c(0x90000010) : 0xFF1E1E2F;
+        int playerBg = light ? Theme.c(0xE01E1E2E) : 0xFF1E1E2E;
+        g.fill(0, 0, SIDEBAR_W, playerBarY(), sidebarBg);
+        g.fill(SIDEBAR_W, 0, SIDEBAR_W + 1, playerBarY(), Theme.c(0xFF3A3A50));
+        g.fill(SIDEBAR_W + 1, 0, this.width, playerBarY(), contentBg);
 
-        // 播放栏背景
-        g.fill(0, playerBarY(), this.width, this.height, 0xE01E1E2E);
-        g.fill(0, playerBarY(), this.width, playerBarY() + 1, 0xFF3A3A50);
+        g.fill(0, playerBarY(), this.width, this.height, playerBg);
+        g.fill(0, playerBarY(), this.width, playerBarY() + 1, Theme.c(0xFF3A3A50));
 
         // 统一控制设置页控件可见性（仅设置页且详情面板关闭时显示）
         boolean showSettings = (nav == Nav.SETTINGS && detailSong == null);
@@ -881,6 +907,8 @@ public class MusicAppScreen extends Screen {
         if (barTransPosBtn != null) barTransPosBtn.visible = showSettings;
         if (lyricsClickModeBtn != null) lyricsClickModeBtn.visible = showSettings;
         if (detailDblClickPlayBtn != null) detailDblClickPlayBtn.visible = showSettings;
+        if (queueShowPlayedBtn != null) queueShowPlayedBtn.visible = showSettings;
+        if (themeBtn != null) themeBtn.visible = showSettings;
         if (songsDirBox != null) songsDirBox.visible = showSettings;
         if (applyDirBtn != null) applyDirBtn.visible = showSettings;
         if (openSongsDirBtn != null) openSongsDirBtn.visible = showSettings;
@@ -925,7 +953,7 @@ public class MusicAppScreen extends Screen {
             playlistDeleteBtn.active = canEditPlaylist && selected != null && !builtIn;
             boolean confirming = selected != null && playlistDeleteConfirmId != null
                     && playlistDeleteConfirmId.equals(selected.getId());
-            playlistDeleteBtn.setMessage(Component.literal(confirming ? Lang.tr("确认删除") : Lang.tr("删除")));
+            playlistDeleteBtn.setMessage(Component.literal(confirming ? Theme.tr("确认删除") : Theme.tr("删除")));
         }
 
         // 0.27.0：搜索框定位与可见性（非设置/详情/歌单页时可用）
@@ -944,14 +972,14 @@ public class MusicAppScreen extends Screen {
             renderDetailPanel(g, mouseX, mouseY);
         } else {
             switch (nav) {
-                case ALL: renderSongList(g, mouseX, mouseY, subPage != null ? subPage.title : Lang.tr("全部歌曲"), currentSongs()); break;
+                case ALL: renderSongList(g, mouseX, mouseY, subPage != null ? subPage.title : Theme.tr("歌曲"), currentSongs()); break;
                 case ARTIST:
                     if (subPage != null) renderSongList(g, mouseX, mouseY, subPage.title, currentSongs());
-                    else renderGroupList(g, mouseX, mouseY, filteredGroups(groupByArtist()), Lang.tr("🎤 歌手"));
+                    else renderGroupList(g, mouseX, mouseY, filteredGroups(groupByArtist()), Theme.tr("🎤 歌手"));
                     break;
                 case ALBUM:
                     if (subPage != null) renderSongList(g, mouseX, mouseY, subPage.title, currentSongs());
-                    else renderGroupList(g, mouseX, mouseY, filteredGroups(groupByAlbum()), Lang.tr("💿 专辑"));
+                    else renderGroupList(g, mouseX, mouseY, filteredGroups(groupByAlbum()), Theme.tr("💿 专辑"));
                     break;
                 case PLAYLIST: renderPlaylistPage(g, mouseX, mouseY); break;
                 case SETTINGS: renderSettings(g); break;
@@ -961,35 +989,47 @@ public class MusicAppScreen extends Screen {
         // 0.27.4：搜索图标恢复为原符号（放大镜字符），展开金色 / 收起灰色
         // 0.27.5：图标放大 1.5 倍，且与「共 N 首」计数文字（y=8）水平对齐
         if (detailSong == null && nav != Nav.SETTINGS && nav != Nav.PLAYLIST) {
-            int ic = searchOpen ? 0xFFE0A040 : 0xFF999999;
+            int ic = searchOpen ? Theme.c(0xFFE0A040) : Theme.c(0xFF999999);
             g.pose().pushPose();
             g.pose().translate(searchIconX(), SEARCH_ICON_Y, 0);
             g.pose().scale(SEARCH_ICON_SCALE, SEARCH_ICON_SCALE, 1.0f);
-            g.drawString(font, "🔍", 0, 0, ic);
+            g.drawString(font, "🔍", 0, 0, ic, false);
             g.pose().popPose();
         }
 
+        // 暂停绘制原版按钮，统一用半透明卡片样式重绘，避免原版灰底和文字阴影。
+        java.util.List<Button> cardButtons = new ArrayList<>();
+        for (var renderable : this.renderables) {
+            if (renderable instanceof Button b && b.visible) {
+                b.visible = false;
+                cardButtons.add(b);
+            }
+        }
         super.render(g, mouseX, mouseY, partialTick);
 
         renderPlayerBar(g);
         renderAddToPlaylistPopup(g, mouseX, mouseY);
+        for (Button b : cardButtons) {
+            b.visible = true;
+            CardButton.draw(g, b, mouseX, mouseY);
+        }
         g.pose().popPose();
     }
 
     /** 绘制窗口外部遮罩、边框、标题栏与关闭按钮 */
     private void renderWindowChrome(GuiGraphics g, int mouseX, int mouseY) {
         // 外部半透明遮罩，突出窗口；窗口内部由 renderBackground 自行绘制
-        g.fill(0, 0, realWidth, realHeight, 0x80000000);
+        g.fill(0, 0, realWidth, realHeight, Theme.c(0x80000000));
         // 外边框 + 内边框
-        g.fill(windowX - 2, windowY - 2, windowX + windowW + 2, windowY + windowH + 2, 0xFF15151F);
-        g.fill(windowX - 1, windowY - 1, windowX + windowW + 1, windowY + windowH + 1, 0xFF4A4A60);
+        g.fill(windowX - 2, windowY - 2, windowX + windowW + 2, windowY + windowH + 2, Theme.c(0xFF15151F));
+        g.fill(windowX - 1, windowY - 1, windowX + windowW + 1, windowY + windowH + 1, Theme.c(0xFF4A4A60));
         // 标题栏
-        g.fill(windowX, windowY, windowX + windowW, windowY + WINDOW_TITLE_H, 0xFF1E1E2E);
-        g.drawString(this.font, Lang.tr("§e一起听 §7· 音乐播放器"), windowX + 8, windowY + 7, 0xFFFFFF);
+        g.fill(windowX, windowY, windowX + windowW, windowY + WINDOW_TITLE_H, Theme.c(0xFF1E1E2E));
+        g.drawString(this.font, Theme.tr("§e一起听 §7· 音乐播放器"), windowX + 8, windowY + 7, Theme.c(0xFFFFFF), false);
 
         boolean closeHover = isOverClose(mouseX, mouseY);
         g.drawString(this.font, closeHover ? "§c✕" : "§7✕",
-                windowX + windowW - 18, windowY + 7, 0xFFFFFF);
+                windowX + windowW - 18, windowY + 7, Theme.c(0xFFFFFF), false);
     }
 
     /** 关闭按钮命中区（真实屏幕坐标） */
@@ -1004,24 +1044,35 @@ public class MusicAppScreen extends Screen {
         ClientTagStore tags = ClientTagStore.getInstance();
         ClientMusicManager mgr = ClientMusicManager.getInstance();
         String currentSong = mgr.getCurrentSong();
-        g.drawString(font, "§e§l" + pageTitle, x, 8, 0xFFFFFF);
+        Font headerFont = font;
+        g.drawString(headerFont, "§e" + pageTitle, x, 8, Theme.c(0xFFFFFF), false);
         if (subPage != null) {
-            g.drawString(font, Lang.tr("§7« 返回"), x + font.width("§e§l" + pageTitle) + 8, 8, 0xAAAAAA);
+            g.drawString(headerFont, Theme.tr("§7« 返回"),
+                    x + headerFont.width("§e" + pageTitle) + 8, 8, Theme.c(0xAAAAAA), false);
         }
         // 0.27.5：计数文字避让右上角搜索图标/搜索框（图标放大 1.5 倍后收起态避让 24px）
-        String countText = Lang.tr("§7共 ") + songs.size() + Lang.tr(" 首");
+        String countText = Theme.tr("§7共 ") + songs.size() + Theme.tr(" 首");
         int countRight = x + w - (searchOpen ? SEARCH_ICON_ZONE + SEARCH_BOX_W + 2 : 24);
-        g.drawString(font, countText, countRight - font.width(countText), 8, 0xAAAAAA);
+        g.drawString(font, countText, countRight - font.width(countText), 8, Theme.c(0xAAAAAA), false);
         // 0.28.0：排序标签（点击循环切换），置于计数文字左侧
-        String sortText = Lang.tr("§7[排序: ") + sortModeName() + "]";
+        String sortText = Theme.tr("§7[排序: ") + sortModeName() + "]";
         int sortW = font.width(sortText);
         int sortX = countRight - font.width(countText) - sortW - 6;
-        g.drawString(font, sortText, sortX, 8, 0xAAAAAA);
+        g.drawString(font, sortText, sortX, 8, Theme.c(0xAAAAAA), false);
         sortLabelX = sortX;
         sortLabelW = sortW;
-        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, 0xFF4A4A60);
-        g.fill(x, y0, x + w, y0 + h, 0x90000010);
+        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, y0, x + w, y0 + h, Theme.listBg());
         int rows = h / ROW_H;
+        if (scrollToCurrentPending && !songs.isEmpty()) {
+            scrollToCurrentPending = false;
+            if (currentSong != null && !currentSong.isEmpty()) {
+                int cur = songs.indexOf(currentSong);
+                if (cur >= 0) {
+                    scrollOffset = Math.max(0, Math.min(cur - rows / 2, Math.max(0, songs.size() - rows)));
+                }
+            }
+        }
         int maxScroll = Math.max(0, songs.size() - rows);
         if (scrollOffset > maxScroll) scrollOffset = maxScroll;
         curScrollTotal = songs.size();
@@ -1041,43 +1092,50 @@ public class MusicAppScreen extends Screen {
             String song = songs.get(idx);
             boolean isSel = song.equals(selectedSong);
             boolean isCur = song.equals(currentSong);
-            if (isSel) g.fill(x, rowY, x + w - 7, rowY + ROW_H, 0x80555577);
-            else if (isCur) g.fill(x, rowY, x + w - 7, rowY + ROW_H, 0x50226633);
+            if (isSel) {
+                g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.c(0x80555577));
+                int accent = Theme.c(0xFFD700);
+                g.fill(x, rowY, x + w - 7, rowY + 1, accent);
+                g.fill(x, rowY + ROW_H - 1, x + w - 7, rowY + ROW_H, accent);
+                g.fill(x, rowY, x + 1, rowY + ROW_H, accent);
+                g.fill(x + w - 8, rowY, x + w - 7, rowY + ROW_H, accent);
+            } else if (isCur) g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.c(0x50226633));
             String numStr = isCur ? (mgr.isPaused() ? "§e▶" : "§a⏸") : String.valueOf(idx + 1);
-            g.drawString(font, numStr, colNum, rowY + 2, isCur ? 0xFFFFFF : 0x888888);
+            g.drawString(font, numStr, colNum, rowY + 2, isCur ? Theme.c(0xFFFFFF) : Theme.c(0x888888), false);
             String title = tags.displayTitle(song);
             // 当前播放：播放中绿色、暂停黄色；选中不高亮歌曲名（仅行背景区分）
-            int titleColor = isCur ? (mgr.isPaused() ? 0xFFFF55 : 0x55FF55) : 0xF0F0F0;
-            g.drawString(font, truncate(font, title, titleMax), colNum + 22, rowY + 2, titleColor);
+            int titleColor = isCur ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.c(0x55FF55))
+                    : Theme.rowPrimary();
+            g.drawString(font, truncate(font, title, titleMax), colNum + 22, rowY + 2, titleColor, false);
             String artist = tags.artist(song);
-            g.drawString(font, truncate(font, artist.isEmpty() ? Lang.tr("§7未知") : artist, colAlbum - colArtist - 6),
-                    colArtist, rowY + 2, 0xBBBBBB);
+            g.drawString(font, truncate(font, artist.isEmpty() ? Theme.tr("§7未知") : artist, colAlbum - colArtist - 6),
+                    colArtist, rowY + 2, Theme.rowSecondary(), false);
             String album = tags.album(song);
-            g.drawString(font, truncate(font, album.isEmpty() ? Lang.tr("§7未知") : album, colDur - colAlbum - 6),
-                    colAlbum, rowY + 2, 0x999999);
+            g.drawString(font, truncate(font, album.isEmpty() ? Theme.tr("§7未知") : album, colDur - colAlbum - 6),
+                    colAlbum, rowY + 2, Theme.rowMuted(), false);
             int durSec = tags.durationSec(song);
             if (durSec >= 0) {
-                g.drawString(font, formatDuration(durSec), colDur, rowY + 2, 0x888888);
+                g.drawString(font, formatDuration(durSec), colDur, rowY + 2, Theme.rowMuted(), false);
             }
             boolean fav = ClientFavorites.isFavorite(song);
-            g.drawString(font, fav ? "§c♥" : "§7♡", colHeart, rowY + 2, 0xFFFFFF);
+            g.drawString(font, fav ? "§c♥" : "§7♡", colHeart, rowY + 2, Theme.c(0xFFFFFF), false);
         }
         if (songs.isEmpty()) {
             String emptyMsg = searchFilter().isEmpty()
-                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Lang.tr("§7（无匹配结果）");
-            g.drawCenteredString(font, emptyMsg, x + w / 2, y0 + h / 2 - 4, 0xAAAAAA);
+                    ? Theme.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Theme.tr("§7（无匹配结果）");
+            UiText.centered(g, font, emptyMsg, x + w / 2, y0 + h / 2 - 4, Theme.c(0xAAAAAA));
         }
         drawScrollbar(g, songs.size(), rows, x, y0, w, h);
         addSongHintX = -1;
         addSongHintW = 0;
         if (selectedSong != null && !selectedSong.isEmpty()) {
             int hintY = playerBarY() - 12;
-            String prefix = Lang.tr("§7[ 点击行中 ♥ 收藏 ]  [ 双击播放 ]");
-            String add = isOp() ? Lang.tr("  §e[ + 歌单 ]") : "";
-            g.drawString(font, prefix, x, hintY, 0xAAAAAA);
+            String prefix = Theme.tr("§7[ 点击行中 ♥ 收藏 ]  [ 双击播放 ]");
+            String add = isOp() ? Theme.tr("  §e[ + 歌单 ]") : "";
+            g.drawString(font, prefix, x, hintY, Theme.c(0xAAAAAA), false);
             if (!add.isEmpty()) {
                 int cursorX = x + font.width(prefix);
-                g.drawString(font, add, cursorX, hintY, 0xFFD700);
+                g.drawString(font, add, cursorX, hintY, Theme.c(0xFFD700), false);
                 addSongHintX = cursorX;
                 addSongHintW = font.width(add);
             }
@@ -1091,13 +1149,13 @@ public class MusicAppScreen extends Screen {
         int x = listX(), w = listW(), y0 = LIST_TOP, h = listH();
         addSongHintX = -1;
         addSongHintW = 0;
-        g.drawString(font, "§e§l" + pageTitle, x, 8, 0xFFFFFF);
+        g.drawString(font, "§e" + pageTitle, x, 8, Theme.c(0xFFFFFF), false);
         // 0.27.5：计数文字避让右上角搜索图标/搜索框（图标放大 1.5 倍后收起态避让 24px）
-        String countText = Lang.tr("§7共 ") + groups.size() + Lang.tr(" 组");
+        String countText = Theme.tr("§7共 ") + groups.size() + Theme.tr(" 组");
         int countRight = x + w - (searchOpen ? SEARCH_ICON_ZONE + SEARCH_BOX_W + 2 : 24);
-        g.drawString(font, countText, countRight - font.width(countText), 8, 0xAAAAAA);
-        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, 0xFF4A4A60);
-        g.fill(x, y0, x + w, y0 + h, 0x90000010);
+        g.drawString(font, countText, countRight - font.width(countText), 8, Theme.c(0xAAAAAA), false);
+        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, y0, x + w, y0 + h, Theme.listBg());
         List<String> keys = new ArrayList<>(groups.keySet());
         int rows = h / (ROW_H + 4);
         int maxScroll = Math.max(0, keys.size() - rows);
@@ -1112,10 +1170,10 @@ public class MusicAppScreen extends Screen {
             int rowY = y0 + i * (ROW_H + 4);
             String key = keys.get(idx);
             int cnt = groups.get(key).size();
-            g.fill(x, rowY, x + w - 7, rowY + ROW_H + 2, 0x60333350);
-            g.drawString(font, "§f" + truncate(font, key, w - 80), x + 6, rowY + 3, 0xF0F0F0);
-            String cntStr = "§7" + cnt + Lang.tr(" 首 »");
-            g.drawString(font, cntStr, x + w - font.width(cntStr) - 6, rowY + 3, 0xAAAAAA);
+            g.fill(x, rowY, x + w - 7, rowY + ROW_H + 2, Theme.c(0x60333350));
+            g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, key, w - 80), x + 6, rowY + 3, Theme.c(0xF0F0F0), false);
+            String cntStr = (Theme.isLight() ? "§8" : "§7") + cnt + Theme.tr(" 首 »");
+            g.drawString(font, cntStr, x + w - font.width(cntStr) - 6, rowY + 3, Theme.c(0xAAAAAA), false);
         }
         drawScrollbar(g, keys.size(), rows, x, y0, w, h);
     }
@@ -1148,9 +1206,9 @@ public class MusicAppScreen extends Screen {
             playlistDeleteConfirmId = null;
         }
 
-        g.drawString(font, Lang.tr("§e§l♫ 歌单"), x, 8, 0xFFFFFF);
-        String countText = Lang.tr("§7共 ") + playlists.size() + Lang.tr(" 个歌单");
-        g.drawString(font, countText, x + w - font.width(countText) - 4, 8, 0xAAAAAA);
+        g.drawString(font, Theme.tr("§e♫ 歌单"), x, 8, Theme.c(0xFFFFFF), false);
+        String countText = Theme.tr("§7共 ") + playlists.size() + Theme.tr(" 个歌单");
+        g.drawString(font, countText, x + w - font.width(countText) - 4, 8, Theme.c(0xAAAAAA), false);
 
         int rows = Math.max(1, h / PLAYLIST_ROW_H);
         int maxScroll = Math.max(0, playlists.size() - rows);
@@ -1161,8 +1219,8 @@ public class MusicAppScreen extends Screen {
         curScrollYOffset = 0;
 
         // 左侧歌单列表
-        g.fill(x - 1, LIST_TOP - 1, listRight + 1, LIST_TOP + h + 1, 0xFF4A4A60);
-        g.fill(x, LIST_TOP, x + listAreaW, LIST_TOP + h, 0x90000010);
+        g.fill(x - 1, LIST_TOP - 1, listRight + 1, LIST_TOP + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, LIST_TOP, x + listAreaW, LIST_TOP + h, Theme.listBg());
 
         Set<String> librarySongs = new HashSet<>(allSongs());
         String currentSong = ClientMusicManager.getInstance().getCurrentSong();
@@ -1176,55 +1234,55 @@ public class MusicAppScreen extends Screen {
             // 收藏/最近播放不显示“包含当前歌曲”的绿色高亮
             boolean containsCurrent = !builtInRow && !currentSong.isEmpty()
                     && playlist.contains(currentSong);
-            if (selected) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, 0x80555577);
-            else if (containsCurrent) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, 0x30226633);
+            if (selected) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x80555577));
+            else if (containsCurrent) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x30226633));
             String icon = ClientPlaylists.isFavorites(playlist.getId()) ? "§c❤"
                     : ClientPlaylists.isRecent(playlist.getId()) ? "§9🕘" : "§7♫";
-            g.drawString(font, icon, x + 6, rowY + 4, 0xFFFFFF);
-            g.drawString(font, "§f" + truncate(font, Lang.tr(playlist.getName()), Math.max(40, listAreaW - 100)),
-                    x + 24, rowY + 4, 0xF0F0F0);
+            g.drawString(font, icon, x + 6, rowY + 4, Theme.c(0xFFFFFF), false);
+            g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, Theme.tr(playlist.getName()), Math.max(40, listAreaW - 100)),
+                    x + 24, rowY + 4, Theme.c(0xF0F0F0), false);
             int available = 0;
             for (String song : playlist.getSongs()) {
                 if (librarySongs.contains(song)) available++;
             }
-            String count = "§7" + available + "/" + playlist.size() + Lang.tr(" 首");
-            g.drawString(font, count, x + listAreaW - font.width(count) - 12, rowY + 4, 0xAAAAAA);
+            String count = (Theme.isLight() ? "§8" : "§7") + available + "/" + playlist.size() + Theme.tr(" 首");
+            g.drawString(font, count, x + listAreaW - font.width(count) - 12, rowY + 4, Theme.c(0xAAAAAA), false);
         }
         drawScrollbar(g, playlists.size(), rows, x, LIST_TOP, listAreaW, h);
 
         // 右侧「新建 / 编辑」面板
         int panelX = playlistPanelX();
         int panelW = playlistPanelW();
-        g.fill(panelX - 1, LIST_TOP - 1, panelX + panelW + 1, LIST_TOP + h + 1, 0xFF4A4A60);
-        g.fill(panelX, LIST_TOP, panelX + panelW, LIST_TOP + h, 0x90000010);
-        g.drawString(font, Lang.tr("§e§l新建 / 编辑"), panelX + 8, LIST_TOP + 6, 0xFFFFFF);
+        g.fill(panelX - 1, LIST_TOP - 1, panelX + panelW + 1, LIST_TOP + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(panelX, LIST_TOP, panelX + panelW, LIST_TOP + h, Theme.listBg());
+        g.drawString(font, Theme.tr("§e新建 / 编辑"), panelX + 8, LIST_TOP + 6, Theme.c(0xFFFFFF), false);
 
         if (!isOp()) {
-            g.drawString(font, Lang.tr("§7仅管理员可新建"), panelX + 8, LIST_TOP + 28, 0xAAAAAA);
-            g.drawString(font, Lang.tr("§7或编辑服务器歌单"), panelX + 8, LIST_TOP + 40, 0xAAAAAA);
+            g.drawString(font, Theme.tr("§7仅管理员可新建"), panelX + 8, LIST_TOP + 28, Theme.c(0xAAAAAA), false);
+            g.drawString(font, Theme.tr("§7或编辑服务器歌单"), panelX + 8, LIST_TOP + 40, Theme.c(0xAAAAAA), false);
         } else {
             Playlist selected = selectedPlaylist();
             int infoY = LIST_TOP + 98;
             if (selected == null) {
-                g.drawString(font, Lang.tr("§7先选择歌单，或输入"), panelX + 8, infoY, 0xAAAAAA);
-                g.drawString(font, Lang.tr("§7名称新建歌单"), panelX + 8, infoY + 11, 0xAAAAAA);
+                g.drawString(font, Theme.tr("§7先选择歌单，或输入"), panelX + 8, infoY, Theme.c(0xAAAAAA), false);
+                g.drawString(font, Theme.tr("§7名称新建歌单"), panelX + 8, infoY + 11, Theme.c(0xAAAAAA), false);
             } else if (ClientPlaylists.isBuiltIn(selected.getId())) {
-                g.drawString(font, "§e" + truncate(font, Lang.tr(selected.getName()), panelW - 16),
-                        panelX + 8, infoY, 0xFFFF55);
-                g.drawString(font, Lang.tr("§7内置歌单（自动维护）"), panelX + 8, infoY + 11, 0xAAAAAA);
-                g.drawString(font, Lang.tr("§8不可重命名/删除"), panelX + 8, infoY + 22, 0x888888);
+                g.drawString(font, "§e" + truncate(font, Theme.tr(selected.getName()), panelW - 16),
+                        panelX + 8, infoY, Theme.c(0xFFFF55), false);
+                g.drawString(font, Theme.tr("§7内置歌单（自动维护）"), panelX + 8, infoY + 11, Theme.c(0xAAAAAA), false);
+                g.drawString(font, Theme.tr("§8不可重命名/删除"), panelX + 8, infoY + 22, Theme.c(0x888888), false);
             } else {
-                g.drawString(font, "§e" + truncate(font, Lang.tr(selected.getName()), panelW - 16),
-                        panelX + 8, infoY, 0xFFFF55);
-                g.drawString(font, "§7" + selected.size() + Lang.tr(" 首 · 可重命名/删除"),
-                        panelX + 8, infoY + 11, 0xAAAAAA);
+                g.drawString(font, "§e" + truncate(font, Theme.tr(selected.getName()), panelW - 16),
+                        panelX + 8, infoY, Theme.c(0xFFFF55), false);
+                g.drawString(font, (Theme.isLight() ? "§8" : "§7") + selected.size() + Theme.tr(" 首 · 可重命名/删除"),
+                        panelX + 8, infoY + 11, Theme.c(0xAAAAAA), false);
             }
         }
 
         String hint = isOp()
-                ? Lang.tr("§7[ 单击选择 ]  [ 双击打开 ]  [ 右侧可新建/重命名 ]")
-                : Lang.tr("§7[ 双击打开歌单 ]  §8（仅管理员可编辑）");
-        g.drawString(font, hint, x, playerBarY() - 12, 0xAAAAAA);
+                ? Theme.tr("§7[ 单击选择 ]  [ 双击打开 ]  [ 右侧可新建/重命名 ]")
+                : Theme.tr("§7[ 双击打开歌单 ]  §8（仅管理员可编辑）");
+        g.drawString(font, hint, x, playerBarY() - 12, Theme.c(0xAAAAAA), false);
     }
 
     /** 歌单详情页：播放 / 添加歌曲 / 删除 + 歌曲列表（内置歌单只读部分操作） */
@@ -1236,19 +1294,19 @@ public class MusicAppScreen extends Screen {
         boolean recent = ClientPlaylists.isRecent(playlist.getId());
 
         String title = playlistTitle(playlist);
-        g.drawString(font, "§e§l" + title, x, 8, 0xFFFFFF);
-        int titleW = font.width("§e§l" + title);
-        String backText = Lang.tr("§7« 返回歌单");
-        g.drawString(font, backText, x + titleW + 10, 8, 0xAAAAAA);
+        g.drawString(font, "§e" + title, x, 8, Theme.c(0xFFFFFF), false);
+        int titleW = font.width("§e" + title);
+        String backText = Theme.tr("§7« 返回歌单");
+        g.drawString(font, backText, x + titleW + 10, 8, Theme.c(0xAAAAAA), false);
 
         // 计数固定在顶部右侧
-        String countText = Lang.tr("§7共 ") + playlist.size() + Lang.tr(" 首");
-        g.drawString(font, countText, x + w - font.width(countText) - 4, 8, 0xAAAAAA);
+        String countText = Theme.tr("§7共 ") + playlist.size() + Theme.tr(" 首");
+        g.drawString(font, countText, x + w - font.width(countText) - 4, 8, Theme.c(0xAAAAAA), false);
 
         // 工具栏（文字按钮，点击区域在 mouseClicked 中判定）
         int toolbarY = y0 + 7;
-        String playText = Lang.tr("§a▶ 播放歌单");
-        g.drawString(font, playText, x + 8, toolbarY, 0x55FF55);
+        String playText = Theme.tr("§a▶ 播放歌单");
+        g.drawString(font, playText, x + 8, toolbarY, Theme.c(0x55FF55), false);
         playlistPlayX = x + 8;
         playlistPlayW = font.width(playText);
         int cursor = playlistPlayX + playlistPlayW + 18;
@@ -1256,8 +1314,8 @@ public class MusicAppScreen extends Screen {
         if (!builtIn && isOp()) {
             boolean confirming = playlistDeleteConfirmId != null
                     && playlistDeleteConfirmId.equals(playlist.getId());
-            String deleteText = confirming ? Lang.tr("§c确认删除?") : Lang.tr("§c🗑 删除歌单");
-            g.drawString(font, deleteText, cursor, toolbarY, 0xFF5555);
+            String deleteText = confirming ? Theme.tr("§c确认删除?") : Theme.tr("§c🗑 删除歌单");
+            g.drawString(font, deleteText, cursor, toolbarY, Theme.c(0xFF5555), false);
             playlistDeleteX = cursor;
             playlistDeleteW = font.width(deleteText);
             cursor += playlistDeleteW + 12;
@@ -1265,28 +1323,28 @@ public class MusicAppScreen extends Screen {
             playlistDeleteX = -1;
             playlistDeleteW = 0;
             if (builtIn) {
-                String tag = favorites ? Lang.tr("§8内置收藏 · 与 ♥ 联动")
-                        : recent ? Lang.tr("§8内置历史 · 播放自动记录") : Lang.tr("§8内置歌单");
-                g.drawString(font, tag, cursor, toolbarY, 0x888888);
+                String tag = favorites ? Theme.tr("§8内置收藏 · 与 ♥ 联动")
+                        : recent ? Theme.tr("§8内置历史 · 播放自动记录") : Theme.tr("§8内置歌单");
+                g.drawString(font, tag, cursor, toolbarY, Theme.c(0x888888), false);
                 cursor += font.width(tag) + 12;
             } else {
-                g.drawString(font, Lang.tr("§8仅管理员可删除"), cursor, toolbarY, 0x777777);
-                cursor += font.width(Lang.tr("§8仅管理员可删除")) + 12;
+                g.drawString(font, Theme.tr("§8仅管理员可删除"), cursor, toolbarY, Theme.c(0x777777), false);
+                cursor += font.width(Theme.tr("§8仅管理员可删除")) + 12;
             }
         }
         if (!isOp()) {
-            g.drawString(font, Lang.tr("§8（播放需要管理员权限）"), cursor, toolbarY, 0x777777);
+            g.drawString(font, Theme.tr("§8（播放需要管理员权限）"), cursor, toolbarY, Theme.c(0x777777), false);
         }
 
         // 「添加歌曲」与播放歌单、删除歌单保持同一 Y 坐标，靠右对齐
         boolean canAdd = favorites || (!recent && isOp());
         if (canAdd) {
-            String addText = Lang.tr("§b[ + 添加歌曲 ]");
+            String addText = Theme.tr("§b[ + 添加歌曲 ]");
             int addW = font.width(addText);
             int addX = x + w - addW - 6;
             int addBgY = y0 + 2;
-            g.fill(addX - 4, addBgY, addX + addW + 4, addBgY + 16, 0x60333350);
-            g.drawString(font, addText, addX, toolbarY, 0x55FFFF);
+            g.fill(addX - 4, addBgY, addX + addW + 4, addBgY + 16, Theme.c(0x60333350));
+            g.drawString(font, addText, addX, toolbarY, Theme.c(0x55FFFF), false);
             playlistAddX = addX - 4;
             playlistAddY = addBgY;
             playlistAddW = addW + 8;
@@ -1302,6 +1360,14 @@ public class MusicAppScreen extends Screen {
         int rowsAreaH = Math.max(PLAYLIST_ROW_H, h - PLAYLIST_TOOLBAR_H);
         int rows = Math.max(1, rowsAreaH / PLAYLIST_ROW_H);
         List<String> songs = playlist.getSongs();
+        String detailCurrent = ClientMusicManager.getInstance().getCurrentSong();
+        if (scrollToCurrentPending && !songs.isEmpty()) {
+            scrollToCurrentPending = false;
+            int cur = songs.indexOf(detailCurrent);
+            if (cur >= 0) {
+                scrollOffset = Math.max(0, Math.min(cur - rows / 2, Math.max(0, songs.size() - rows)));
+            }
+        }
         int maxScroll = Math.max(0, songs.size() - rows);
         if (scrollOffset > maxScroll) scrollOffset = maxScroll;
         curScrollTotal = songs.size();
@@ -1309,8 +1375,8 @@ public class MusicAppScreen extends Screen {
         curScrollRowH = PLAYLIST_ROW_H;
         curScrollYOffset = PLAYLIST_TOOLBAR_H;
 
-        g.fill(x - 1, rowsTop - 1, x + w + 1, rowsTop + rowsAreaH + 1, 0xFF4A4A60);
-        g.fill(x, rowsTop, x + w, rowsTop + rowsAreaH, 0x90000010);
+        g.fill(x - 1, rowsTop - 1, x + w + 1, rowsTop + rowsAreaH + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, rowsTop, x + w, rowsTop + rowsAreaH, Theme.listBg());
 
         Set<String> librarySongs = new HashSet<>(allSongs());
         ClientTagStore tags = ClientTagStore.getInstance();
@@ -1330,47 +1396,53 @@ public class MusicAppScreen extends Screen {
             boolean selected = song.equals(selectedSong);
             boolean isCurrent = song.equals(currentSong);
             boolean missing = !librarySongs.contains(song);
-            if (selected) g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, 0x80555577);
-            else if (isCurrent) g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, 0x50226633);
+            if (selected) {
+                g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x80555577));
+                int accent = Theme.c(0xFFD700);
+                g.fill(x, rowY, x + w - 6, rowY + 1, accent);
+                g.fill(x, rowY + PLAYLIST_ROW_H - 2, x + w - 6, rowY + PLAYLIST_ROW_H - 1, accent);
+                g.fill(x, rowY, x + 1, rowY + PLAYLIST_ROW_H - 1, accent);
+                g.fill(x + w - 7, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, accent);
+            } else if (isCurrent) g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x50226633));
             String numStr = isCurrent ? (mgr.isPaused() ? "§e▶" : "§a⏸") : String.valueOf(idx + 1);
-            g.drawString(font, numStr, colNum, rowY + 4, isCurrent ? 0xFFFFFF : 0x888888);
+            g.drawString(font, numStr, colNum, rowY + 4, isCurrent ? Theme.c(0xFFFFFF) : Theme.c(0x888888), false);
             String displayTitle = missing ? song : tags.displayTitle(song);
-            int titleColor = missing ? 0xFF7777
-                    : (isCurrent ? (mgr.isPaused() ? 0xFFFF55 : 0x55FF55) : 0xF0F0F0);
+            int titleColor = missing ? Theme.c(0xFF7777)
+                    : (isCurrent ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.c(0x55FF55)) : Theme.c(0xF0F0F0));
             g.drawString(font, truncate(font, displayTitle, Math.max(30, colArtist - colTitle - 8)),
-                    colTitle, rowY + 4, titleColor);
-            String artist = missing ? Lang.tr("文件缺失") : tags.artist(song);
-            g.drawString(font, truncate(font, artist.isEmpty() ? Lang.tr("§7未知") : artist,
+                    colTitle, rowY + 4, titleColor, false);
+            String artist = missing ? Theme.tr("文件缺失") : tags.artist(song);
+            g.drawString(font, truncate(font, artist.isEmpty() ? Theme.tr("§7未知") : artist,
                             Math.max(20, colDur - colArtist - 8)),
-                    colArtist, rowY + 4, missing ? 0xCC6666 : 0xBBBBBB);
+                    colArtist, rowY + 4, missing ? Theme.c(0xCC6666) : Theme.c(0xBBBBBB), false);
             int durSec = tags.durationSec(song);
             if (!missing && durSec >= 0) {
-                g.drawString(font, formatDuration(durSec), colDur, rowY + 4, 0x888888);
+                g.drawString(font, formatDuration(durSec), colDur, rowY + 4, Theme.c(0x888888), false);
             }
             if (showRemove) {
-                g.drawString(font, "§c✕", colRemove, rowY + 4, 0xFF5555);
+                g.drawString(font, "§c✕", colRemove, rowY + 4, Theme.c(0xFF5555), false);
             }
         }
         if (songs.isEmpty()) {
-            String empty = favorites ? Lang.tr("§7还没有收藏歌曲，在全部歌曲中点击 ♥ 即可加入")
-                    : recent ? Lang.tr("§7还没有播放记录，播放歌曲后会自动记录")
-                    : isOp() ? Lang.tr("§7歌单还是空的，点上方「+ 添加歌曲」加入")
-                    : Lang.tr("§7歌单还是空的（仅管理员可添加歌曲）");
-            g.drawCenteredString(font, empty, x + w / 2, rowsTop + rowsAreaH / 2 - 4, 0xAAAAAA);
+            String empty = favorites ? Theme.tr("§7还没有收藏歌曲，在歌曲中点击 ♥ 即可加入")
+                    : recent ? Theme.tr("§7还没有播放记录，播放歌曲后会自动记录")
+                    : isOp() ? Theme.tr("§7歌单还是空的，点上方「+ 添加歌曲」加入")
+                    : Theme.tr("§7歌单还是空的（仅管理员可添加歌曲）");
+            UiText.centered(g, font, empty, x + w / 2, rowsTop + rowsAreaH / 2 - 4, Theme.c(0xAAAAAA));
         }
         drawScrollbar(g, songs.size(), rows, x, rowsTop, w, rowsAreaH);
 
         String hint;
         if (!isOp()) {
-            hint = Lang.tr("§7[ 双击歌曲播放（OP）]  [ « 返回歌单列表 ]");
+            hint = Theme.tr("§7[ 双击歌曲播放（OP）]  [ « 返回歌单列表 ]");
         } else if (recent) {
-            hint = Lang.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 从历史移除 ]  [ « 返回歌单列表 ]");
+            hint = Theme.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 从历史移除 ]  [ « 返回歌单列表 ]");
         } else if (favorites) {
-            hint = Lang.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 取消收藏 ]  [ « 返回歌单列表 ]");
+            hint = Theme.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 取消收藏 ]  [ « 返回歌单列表 ]");
         } else {
-            hint = Lang.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 移除 ]  [ « 返回歌单列表 ]");
+            hint = Theme.tr("§7[ 双击歌曲播放 ]  [ 点击 ✕ 移除 ]  [ « 返回歌单列表 ]");
         }
-        g.drawString(font, hint, x, playerBarY() - 12, 0xAAAAAA);
+        g.drawString(font, hint, x, playerBarY() - 12, Theme.c(0xAAAAAA), false);
     }
 
     // ==================== 添加到歌单弹窗 ====================
@@ -1402,21 +1474,21 @@ public class MusicAppScreen extends Screen {
     private void renderAddToPlaylistPopup(GuiGraphics g, int mouseX, int mouseY) {
         if (addToPlaylistSong == null) return;
         Font font = this.font;
-        g.fill(0, 0, this.width, this.height, 0xA0000000);
+        g.fill(0, 0, this.width, this.height, Theme.c(0xA0000000));
         int px = playlistPopupX(), py = playlistPopupY();
         int pw = PLAYLIST_POPUP_W, ph = playlistPopupH();
-        g.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, 0xFF6A6A8A);
-        g.fill(px, py, px + pw, py + ph, 0xFF202030);
+        g.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, Theme.c(0xFF6A6A8A));
+        g.fill(px, py, px + pw, py + ph, Theme.c(0xFF202030));
 
-        g.drawString(font, Lang.tr("§e§l添加到歌单"), px + 10, py + 8, 0xFFFFFF);
+        g.drawString(font, Theme.tr("§e添加到歌单"), px + 10, py + 8, Theme.c(0xFFFFFF), false);
         String songTitle = ClientTagStore.getInstance().displayTitle(addToPlaylistSong);
-        g.drawString(font, "§7" + truncate(font, songTitle, pw - 20), px + 10, py + 22, 0xAAAAAA);
+        g.drawString(font, (Theme.isLight() ? "§8" : "§7") + truncate(font, songTitle, pw - 20), px + 10, py + 22, Theme.c(0xAAAAAA), false);
 
         List<Playlist> playlists = ClientPlaylists.getInstance().getAll();
         int listY = playlistPopupListY();
         if (playlists.isEmpty()) {
-            g.drawCenteredString(font, Lang.tr("§7还没有歌单，请先在「♫ 歌单」页创建"),
-                    px + pw / 2, listY + 8, 0xAAAAAA);
+            UiText.centered(g, font, Theme.tr("§7还没有歌单，请先在「♫ 歌单」页创建"),
+                    px + pw / 2, listY + 8, Theme.c(0xAAAAAA));
         } else {
             int rows = playlistPopupRows();
             int maxScroll = Math.max(0, playlists.size() - rows);
@@ -1427,33 +1499,32 @@ public class MusicAppScreen extends Screen {
                 int rowY = listY + i * PLAYLIST_POPUP_ROW_H;
                 boolean hover = mouseX >= px && mouseX <= px + pw
                         && mouseY >= rowY && mouseY < rowY + PLAYLIST_POPUP_ROW_H;
-                if (hover) g.fill(px + 4, rowY, px + pw - 4, rowY + PLAYLIST_POPUP_ROW_H - 1, 0x80555577);
+                if (hover) g.fill(px + 4, rowY, px + pw - 4, rowY + PLAYLIST_POPUP_ROW_H - 1, Theme.c(0x80555577));
                 Playlist playlist = playlists.get(idx);
-                g.drawString(font, "§f" + truncate(font, Lang.tr(playlist.getName()), pw - 90),
-                        px + 12, rowY + 4, 0xF0F0F0);
-                String cnt = "§7" + playlist.size() + Lang.tr(" 首");
-                g.drawString(font, cnt, px + pw - font.width(cnt) - 14, rowY + 4, 0xAAAAAA);
+                g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, Theme.tr(playlist.getName()), pw - 90),
+                        px + 12, rowY + 4, Theme.c(0xF0F0F0), false);
+                String cnt = (Theme.isLight() ? "§8" : "§7") + playlist.size() + Theme.tr(" 首");
+                g.drawString(font, cnt, px + pw - font.width(cnt) - 14, rowY + 4, Theme.c(0xAAAAAA), false);
             }
             if (maxScroll > 0) {
                 int barX = px + pw - 6;
                 float ratio = (float) playlistPopupScroll / maxScroll;
                 int barH = Math.max(10, (rows * PLAYLIST_POPUP_ROW_H) * rows / playlists.size());
                 int barY = listY + (int) ((rows * PLAYLIST_POPUP_ROW_H - barH) * ratio);
-                g.fill(barX, listY, barX + 3, listY + rows * PLAYLIST_POPUP_ROW_H, 0x40000000);
-                g.fill(barX, barY, barX + 3, barY + barH, 0xFFAAAAAA);
+                g.fill(barX, listY, barX + 3, listY + rows * PLAYLIST_POPUP_ROW_H, Theme.c(0x40000000));
+                g.fill(barX, barY, barX + 3, barY + barH, Theme.c(0xFFAAAAAA));
             }
         }
-        g.drawString(font, Lang.tr("§8点击歌单添加 · 点击空白处取消"),
-                px + 10, py + ph - 12, 0x888888);
+        g.drawString(font, Theme.tr("§8点击歌单添加 · 点击空白处取消"),
+                px + 10, py + ph - 12, Theme.c(0x888888), false);
     }
 
     /** 打开「添加到歌单」弹窗并收起输入焦点，避免继续向搜索框输入 */
     private void openAddToPlaylistPopup(String song) {
         if (song == null || song.isEmpty()) return;
-        addToPlaylistSong = song;
-        playlistPopupScroll = 0;
         if (searchBox != null) searchBox.setFocused(false);
         setFocused(null);
+        Minecraft.getInstance().setScreen(new SelectPlaylistScreen(this, song));
     }
 
     /** 处理添加到歌单弹窗内的点击（弹窗打开时消费所有点击） */
@@ -1530,8 +1601,8 @@ public class MusicAppScreen extends Screen {
      *  0.27.0：新增歌词跳转/详情双击播放按钮，后续控件下移 52px
      *  0.29.0：新增 HUD 位置按钮，后续控件下移 26px */
     private int settingsContentH() {
-        if (singleplayer) return 418;
-        return emptyServerBtn != null ? 388 : 362;
+        if (singleplayer) return 470;
+        return emptyServerBtn != null ? 458 : 432;
     }
 
     /** 将设置控件定位到滚动后的位置，并按可见性设置 visible */
@@ -1554,7 +1625,7 @@ public class MusicAppScreen extends Screen {
         int maxScroll = Math.max(0, contentH - visibleH);
         settingsScroll = Math.max(0, Math.min(maxScroll, settingsScroll));
 
-        g.drawString(font, Lang.tr("§e§l⚙ 设置"), x, 8, 0xFFFFFF);
+        g.drawString(font, Theme.tr("§e⚙ 设置"), x, 8, Theme.c(0xFFFFFF), false);
         boolean show = (nav == Nav.SETTINGS && detailSong == null);
 
         // 定位控件（随滚动偏移 Y，超出可见区域的隐藏）
@@ -1572,14 +1643,16 @@ public class MusicAppScreen extends Screen {
         positionSetting(barTransPosBtn, 238, show, visibleH);
         positionSetting(lyricsClickModeBtn, 264, show, visibleH);
         positionSetting(detailDblClickPlayBtn, 290, show, visibleH);
+        positionSetting(queueShowPlayedBtn, 316, show, visibleH);
+        positionSetting(themeBtn, 342, show, visibleH);
         if (singleplayer) {
-            positionSetting(songsDirBox, 328, show, visibleH);
-            positionSetting(applyDirBtn, 352, show, visibleH);
-            positionSetting(openSongsDirBtn, 352, show, visibleH);
-            positionSetting(settingsPlayModeBtn, 394, show, visibleH);
+            positionSetting(songsDirBox, 380, show, visibleH);
+            positionSetting(applyDirBtn, 404, show, visibleH);
+            positionSetting(openSongsDirBtn, 404, show, visibleH);
+            positionSetting(settingsPlayModeBtn, 446, show, visibleH);
         } else {
-            positionSetting(openCacheDirBtn, 316, show, visibleH);
-            positionSetting(emptyServerBtn, 368, show, visibleH);
+            positionSetting(openCacheDirBtn, 380, show, visibleH);
+            positionSetting(emptyServerBtn, 432, show, visibleH);
             // 上传按钮固定右上角，避免窗口变矮后滚出可视区域
             if (uploadBtn != null) {
                 int upW = Math.min(100, Math.max(72, w / 5));
@@ -1593,27 +1666,29 @@ public class MusicAppScreen extends Screen {
 
         if (show) {
             // 标签文字（随滚动偏移）
-            drawSettingLabel(g, font, Lang.tr("§7界面风格"), x, 10);
-            drawSettingLabel(g, font, Lang.tr("§7个人音量"), x, 36);
-            drawSettingLabel(g, font, Lang.tr("§7HUD 显示"), x, 62);
-            drawSettingLabel(g, font, Lang.tr("§7HUD 位置"), x, 88);
-            drawSettingLabel(g, font, Lang.tr("§7翻译歌词"), x, 114);
-            drawSettingLabel(g, font, Lang.tr("§7音符图标"), x, 140);
-            drawSettingLabel(g, font, Lang.tr("§7歌词对齐"), x, 166);
-            drawSettingLabel(g, font, Lang.tr("§7HUD 翻译位置"), x, 192);
-            drawSettingLabel(g, font, Lang.tr("§7详情页翻译位置"), x, 218);
-            drawSettingLabel(g, font, Lang.tr("§7进度条翻译位置"), x, 244);
-            drawSettingLabel(g, font, Lang.tr("§7歌词跳转"), x, 270);
-            drawSettingLabel(g, font, Lang.tr("§7详情双击播放"), x, 296);
+            drawSettingLabel(g, font, Theme.tr("§7界面风格"), x, 10);
+            drawSettingLabel(g, font, Theme.tr("§7个人音量"), x, 36);
+            drawSettingLabel(g, font, Theme.tr("§7HUD 显示"), x, 62);
+            drawSettingLabel(g, font, Theme.tr("§7HUD 位置"), x, 88);
+            drawSettingLabel(g, font, Theme.tr("§7翻译歌词"), x, 114);
+            drawSettingLabel(g, font, Theme.tr("§7音符图标"), x, 140);
+            drawSettingLabel(g, font, Theme.tr("§7歌词对齐"), x, 166);
+            drawSettingLabel(g, font, Theme.tr("§7HUD 翻译位置"), x, 192);
+            drawSettingLabel(g, font, Theme.tr("§7详情页翻译位置"), x, 218);
+            drawSettingLabel(g, font, Theme.tr("§7进度条翻译位置"), x, 244);
+            drawSettingLabel(g, font, Theme.tr("§7歌词跳转"), x, 270);
+            drawSettingLabel(g, font, Theme.tr("§7详情双击播放"), x, 296);
+            drawSettingLabel(g, font, Theme.tr("§7队列显示已播放"), x, 322);
+            drawSettingLabel(g, font, Theme.tr("§7界面主题"), x, 348);
             if (singleplayer) {
-                drawSettingLabel(g, font, Lang.tr("§7歌曲目录（单人游戏）"), x, 314);
-                drawSettingLabel(g, font, Lang.tr("§7播放模式"), x, 400);
+                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 358);
+                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 452);
             }
             // 多人模式：服务器配置提示固定在右下角（不随滚动）
             if (!singleplayer) {
-                String hint = Lang.tr("§8服务器配置: config/musicmod-server.toml");
+                String hint = Theme.tr("§8服务器配置: config/musicmod-server.toml");
                 int hintW = font.width(hint);
-                g.drawString(font, hint, x + w - hintW, playerBarY() - 12, 0x888888);
+                g.drawString(font, hint, x + w - hintW, playerBarY() - 12, Theme.c(0x888888), false);
             }
             // 滚动条
             if (maxScroll > 0) {
@@ -1622,8 +1697,8 @@ public class MusicAppScreen extends Screen {
                 float ratio = (float) settingsScroll / maxScroll;
                 int barH = Math.max(12, visibleH * visibleH / contentH);
                 int barY = y0 + (int) ((visibleH - barH) * ratio);
-                g.fill(barX, y0, barX + 4, y0 + visibleH, 0x40000000);
-                g.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
+                g.fill(barX, y0, barX + 4, y0 + visibleH, Theme.c(0x40000000));
+                g.fill(barX, barY, barX + 4, barY + barH, Theme.c(0xFFAAAAAA));
             }
         }
     }
@@ -1632,7 +1707,8 @@ public class MusicAppScreen extends Screen {
     private void drawSettingLabel(GuiGraphics g, Font font, String text, int x, int baseY) {
         int y = LIST_TOP + baseY - settingsScroll;
         if (y >= LIST_TOP - 12 && y <= LIST_TOP + listH()) {
-            g.drawString(font, text, x + 8, y, 0xAAAAAA);
+            int textY = y + (20 - font.lineHeight) / 2 + 1;
+            g.drawString(font, text, x + 8, textY, Theme.c(0xAAAAAA), false);
         }
     }
 
@@ -1642,8 +1718,8 @@ public class MusicAppScreen extends Screen {
         float ratio = (float) scrollOffset / Math.max(1, total - visibleRows);
         int barH = Math.max(12, (int) ((float) h * visibleRows / total));
         int barY = y0 + (int) ((h - barH) * ratio);
-        g.fill(barX, y0, barX + 4, y0 + h, 0x40000000);
-        g.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
+        g.fill(barX, y0, barX + 4, y0 + h, Theme.c(0x40000000));
+        g.fill(barX, barY, barX + 4, barY + barH, Theme.c(0xFFAAAAAA));
     }
 
     /** 底部播放栏 */
@@ -1652,17 +1728,17 @@ public class MusicAppScreen extends Screen {
         ClientMusicManager mgr = ClientMusicManager.getInstance();
         int by = playerBarY();
         String song = mgr.getCurrentSong();
-        int coverX = 6, coverY = by + 4, coverSize = 30;
+        int coverX = 6, coverY = by + 6, coverSize = 30;
         ResourceLocation cover = song.isEmpty() ? null : CoverTextureManager.get(song);
         if (cover != null) {
             int[] size = CoverTextureManager.getSize(song);
             if (size != null) {
-                g.fill(coverX - 1, coverY - 1, coverX + coverSize + 1, coverY + coverSize + 1, 0xFF555555);
+                g.fill(coverX - 1, coverY - 1, coverX + coverSize + 1, coverY + coverSize + 1, Theme.c(0xFF555555));
                 drawCoverScaled(g, cover, size, coverX, coverY, coverSize);
             }
         } else {
-            g.fill(coverX, coverY, coverX + coverSize, coverY + coverSize, 0xFF2A2A3A);
-            g.drawCenteredString(font, "♪", coverX + coverSize / 2 - 2, coverY + 10, 0x666666);
+            g.fill(coverX, coverY, coverX + coverSize, coverY + coverSize, Theme.c(0xFF2A2A3A));
+            UiText.centered(g, font, "♪", coverX + coverSize / 2 - 2, coverY + 10, Theme.c(0x666666));
         }
         int textX = coverX + coverSize + 8;
         if (!song.isEmpty()) {
@@ -1670,11 +1746,11 @@ public class MusicAppScreen extends Screen {
             String artist = ClientTagStore.getInstance().artist(song);
             // 0.28.1：文本区宽度自适应窗口，截断宽度随之收缩
             int textMaxW = textAreaW() - 10;
-            g.drawString(font, "§f" + truncate(font, title, textMaxW), textX, by + 6, 0xFFFFFF);
-            String sub = artist.isEmpty() ? "" : "§7" + truncate(font, artist, textMaxW);
-            if (!sub.isEmpty()) g.drawString(font, sub, textX, by + 20, 0xAAAAAA);
+            g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, title, textMaxW), textX, by + 6, Theme.c(0xFFFFFF), false);
+            String sub = artist.isEmpty() ? "" : (Theme.isLight() ? "§8" : "§7") + truncate(font, artist, textMaxW);
+            if (!sub.isEmpty()) g.drawString(font, sub, textX, by + 20, Theme.c(0xAAAAAA), false);
         } else {
-            g.drawString(font, Lang.tr("§7未在播放"), textX, by + 13, 0xAAAAAA);
+            g.drawString(font, Theme.tr("§7未在播放"), textX, by + 13, Theme.c(0xAAAAAA), false);
         }
         int barX = progressBarX();
         int barW = progressBarW();
@@ -1683,19 +1759,20 @@ public class MusicAppScreen extends Screen {
             long dur = mgr.getAudioEngine().getSongDurationMs();
             long pos = (progressDragging && dragPreviewMs >= 0)
                     ? dragPreviewMs : mgr.getAudioEngine().getCurrentPositionMs();
-            g.fill(barX, barY, barX + barW, barY + 4, 0xFF333344);
+            g.fill(barX, barY, barX + barW, barY + 4, Theme.c(0xFF333344));
             if (dur > 0 && pos >= 0) {
                 int filled = (int) ((float) barW * Math.min(1f, (float) pos / dur));
                 g.fill(barX, barY, barX + filled, barY + 4,
-                        progressDragging ? 0xFF88CCFF : 0xFF55FF55);
+                        progressDragging ? Theme.c(0xFF88CCFF)
+                                : (Theme.isLight() ? 0xFFB4551E : Theme.c(0xFF55FF55)));
             }
             String timeStr = formatDuration((int) (pos / 1000)) + " / " +
                     (dur > 0 ? formatDuration((int) (dur / 1000)) : "--:--");
             int timeW = font.width(timeStr);
             // 0.25.2：时长始终贴近进度条上方
             int timeY = barY - 11;
-            g.drawString(font, progressDragging ? "§b" + timeStr : "§7" + timeStr,
-                    barX + barW - timeW, timeY, 0xAAAAAA);
+            g.drawString(font, progressDragging ? "§b" + timeStr : (Theme.isLight() ? "§8" : "§7") + timeStr,
+                    barX + barW - timeW, timeY, Theme.c(0xAAAAAA), false);
             // 进度条上方显示当前歌词行（翻译原大小，颜色区分：原文白色，翻译灰色）
             String[] lrc = getCurrentLyricsLine();
             if (lrc != null && lrc[0] != null && !lrc[0].isEmpty()) {
@@ -1709,17 +1786,17 @@ public class MusicAppScreen extends Screen {
                     if (transAfter) {
                         // AFTER：翻译在原文后方同一行（原大小，灰色区分）
                         String orig = truncate(font, lrc[0], maxLrcW / 2);
-                        g.drawString(font, "§f" + orig, barX, lrcY, 0xFFFFFF);
+                        g.drawString(font, (Theme.isLight() ? "§0" : "§f") + orig, barX, lrcY, Theme.c(0xFFFFFF), false);
                         int origW = font.width(orig);
                         String trans = truncate(font, lrc[1], Math.max(20, maxLrcW - origW - 4));
-                        g.drawString(font, "§7" + trans, barX + origW + 4, lrcY, 0xAAAAAA);
+                        g.drawString(font, (Theme.isLight() ? "§8" : "§7") + trans, barX + origW + 4, lrcY, Theme.c(0xAAAAAA), false);
                     } else {
                         // BELOW：翻译在原歌词下方（原大小，灰色区分，紧贴进度条上方）
                         String display = truncate(font, lrc[0], maxLrcW);
-                        g.drawString(font, "§f" + display, barX, lrcY, 0xFFFFFF);
+                        g.drawString(font, (Theme.isLight() ? "§0" : "§f") + display, barX, lrcY, Theme.c(0xFFFFFF), false);
                         if (hasTrans) {
                             String transDisplay = truncate(font, lrc[1], maxLrcW);
-                            g.drawString(font, "§7" + transDisplay, barX, barY - 11, 0xAAAAAA);
+                            g.drawString(font, (Theme.isLight() ? "§8" : "§7") + transDisplay, barX, barY - 11, Theme.c(0xAAAAAA), false);
                         }
                     }
                 }
@@ -1734,7 +1811,7 @@ public class MusicAppScreen extends Screen {
             case SEQUENTIAL: return "§a";
             case LOOP_ONE:  return "§6";
             case SHUFFLE:   return "§b";
-            default:        return "§7";
+            default:        return (Theme.isLight() ? "§8" : "§7");
         }
     }
 
@@ -1770,78 +1847,78 @@ public class MusicAppScreen extends Screen {
             tags.requestSongInfo(detailSong);
         }
         ClientTagStore.SongInfo info = tags.getSongInfo(detailSong);
-        g.drawString(font, Lang.tr("§e§l歌曲详情"), x, 8, 0xFFFFFF);
-        String closeText = Lang.tr("§c✕ 关闭");
+        g.drawString(font, Theme.tr("§e详情"), x, 8, Theme.c(0xFFFFFF), false);
+        String closeText = Theme.tr("§c✕ 关闭");
         int closeX = x + w - font.width(closeText) - 6;
         int closeY = y0 + 4;
-        g.fill(closeX - 3, closeY - 2, x + w - 2, closeY + 11, 0x60333333);
-        g.drawString(font, closeText, closeX, closeY, 0xFF5555);
-        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, 0xFF4A4A60);
-        g.fill(x, y0, x + w, y0 + h, 0x90000010);
+        g.fill(closeX - 3, closeY - 2, x + w - 2, closeY + 11, Theme.c(0x60333333));
+        g.drawString(font, closeText, closeX, closeY, Theme.c(0xFF5555), false);
+        g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, y0, x + w, y0 + h, Theme.listBg());
         int coverX = x + 10, coverY = y0 + 10, cs = 64;
         ResourceLocation cover = CoverTextureManager.get(detailSong);
         if (cover != null) {
             int[] size = CoverTextureManager.getSize(detailSong);
             if (size != null) {
-                g.fill(coverX - 1, coverY - 1, coverX + cs + 1, coverY + cs + 1, 0xFF555555);
+                g.fill(coverX - 1, coverY - 1, coverX + cs + 1, coverY + cs + 1, Theme.c(0xFF555555));
                 drawCoverScaled(g, cover, size, coverX, coverY, cs);
             }
         } else {
-            g.fill(coverX, coverY, coverX + cs, coverY + cs, 0xFF2A2A3A);
-            g.drawCenteredString(font, "♪", coverX + cs / 2 - 4, coverY + cs / 2 - 4, 0x555555);
+            g.fill(coverX, coverY, coverX + cs, coverY + cs, Theme.c(0xFF2A2A3A));
+            UiText.centered(g, font, "♪", coverX + cs / 2 - 4, coverY + cs / 2 - 4, Theme.c(0x555555));
         }
         int infoX = coverX + cs + 12;
         String title = (info != null && !info.title.isEmpty()) ? info.title : tags.displayTitle(detailSong);
-        g.drawString(font, "§f§l" + truncate(font, title, w - (infoX - x) - 10), infoX, coverY + 4, 0xFFFFFF);
+        g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, title, w - (infoX - x) - 10), infoX, coverY + 4, Theme.c(0xFFFFFF), false);
         String artist = info != null ? info.artist : tags.artist(detailSong);
-        g.drawString(font, Lang.tr("§7艺术家: §f") + (artist.isEmpty() ? Lang.tr("未知") : truncate(font, artist, 150)),
-                infoX, coverY + 22, 0xCCCCCC);
+        g.drawString(font, Theme.t(Theme.tr("§7艺术家: §f")) + (artist.isEmpty() ? Theme.tr("未知") : truncate(font, artist, 150)),
+                infoX, coverY + 22, Theme.c(0xCCCCCC), false);
         String album = info != null ? info.album : tags.album(detailSong);
-        g.drawString(font, Lang.tr("§7专辑: §f") + (album.isEmpty() ? Lang.tr("未知") : truncate(font, album, 150)),
-                infoX, coverY + 36, 0xCCCCCC);
+        g.drawString(font, Theme.t(Theme.tr("§7专辑: §f")) + (album.isEmpty() ? Theme.tr("未知") : truncate(font, album, 150)),
+                infoX, coverY + 36, Theme.c(0xCCCCCC), false);
         long dur = info != null ? info.durationMs : tags.durationSec(detailSong) * 1000L;
-        g.drawString(font, Lang.tr("§7时长: §f") + (dur > 0 ? formatDuration((int) (dur / 1000)) : Lang.tr("未知")),
-                infoX, coverY + 50, 0xCCCCCC);
+        g.drawString(font, Theme.t(Theme.tr("§7时长: §f")) + (dur > 0 ? formatDuration((int) (dur / 1000)) : Theme.tr("未知")),
+                infoX, coverY + 50, Theme.c(0xCCCCCC), false);
         boolean fav = ClientFavorites.isFavorite(detailSong);
-        String favText = fav ? Lang.tr("§c♥ 已收藏") : Lang.tr("§7♡ 收藏");
+        String favText = fav ? Theme.tr("§c♥ 已收藏") : Theme.tr("§7♡ 收藏");
         int favY = coverY + 66;
-        g.drawString(font, favText, infoX, favY, 0xFFFFFF);
+        g.drawString(font, favText, infoX, favY, Theme.c(0xFFFFFF), false);
         detailAddSongX = -1;
         detailAddSongW = 0;
         if (isOp()) {
-            String addText = Lang.tr("§e[ + 添加到歌单 ]");
+            String addText = Theme.tr("§e[ + 添加到歌单 ]");
             int addX = infoX + font.width(favText) + 12;
-            g.drawString(font, addText, addX, favY, 0xFFD700);
+            g.drawString(font, addText, addX, favY, Theme.c(0xFFD700), false);
             detailAddSongX = addX;
             detailAddSongW = font.width(addText);
         }
         int lrcY = coverY + cs + 16;
         int lrcH = y0 + h - lrcY - 6;
         if (lrcH < 24) return;
-        g.drawString(font, Lang.tr("§e§l歌词"), x + 10, lrcY - 11, 0xFFD700);
+        g.drawString(font, Theme.tr("§e歌词"), x + 10, lrcY - 11, Theme.c(0xFFD700), false);
         boolean hasTrans = false;
         String lyrics = info != null ? info.lyrics : "";
         if (lyrics != null && !lyrics.isEmpty()) {
             hasTrans = LyricsParser.hasTranslation(LyricsParser.parse(lyrics));
         }
         if (hasTrans) {
-            String transBtn = MusicModConfig.getShowTranslation() ? Lang.tr("§a[译: 开]") : Lang.tr("§7[译: 关]");
-            g.drawString(font, transBtn, x + w - font.width(transBtn) - 8, lrcY - 11, 0xFFFFFF);
+            String transBtn = MusicModConfig.getShowTranslation() ? Theme.tr("§a[译: 开]") : Theme.tr("§7[译: 关]");
+            g.drawString(font, transBtn, x + w - font.width(transBtn) - 8, lrcY - 11, Theme.c(0xFFFFFF), false);
         }
         if (!lyricsAutoFollow) {
-            String followBtn = Lang.tr("§e♪ 跟随 »");
-            int fX = x + w - (hasTrans ? font.width(Lang.tr("§a[译: 开]")) + 20 : 8) - font.width(followBtn);
-            g.drawString(font, followBtn, fX, lrcY - 11, 0xFFD700);
+            String followBtn = Theme.tr("§e♪ 跟随 »");
+            int fX = x + w - (hasTrans ? font.width(Theme.tr("§a[译: 开]")) + 20 : 8) - font.width(followBtn);
+            g.drawString(font, followBtn, fX, lrcY - 11, Theme.c(0xFFD700), false);
         }
-        g.fill(x + 4, lrcY, x + w - 4, lrcY + lrcH, 0x60000000);
+        g.fill(x + 4, lrcY, x + w - 4, lrcY + lrcH, Theme.c(0x60000000));
         if (lyrics == null || lyrics.isEmpty()) {
-            g.drawCenteredString(font, info == null ? Lang.tr("§7加载中...") : Lang.tr("§7暂无歌词"),
-                    x + w / 2, lrcY + lrcH / 2 - 4, 0xAAAAAA);
+            UiText.centered(g, font, info == null ? Theme.tr("§7加载中...") : Theme.tr("§7暂无歌词"),
+                    x + w / 2, lrcY + lrcH / 2 - 4, Theme.c(0xAAAAAA));
             return;
         }
         List<LyricsParser.Line> lines = LyricsParser.parse(lyrics);
         if (lines.isEmpty()) {
-            g.drawCenteredString(font, Lang.tr("§7暂无歌词"), x + w / 2, lrcY + lrcH / 2 - 4, 0xAAAAAA);
+            UiText.centered(g, font, Theme.tr("§7暂无歌词"), x + w / 2, lrcY + lrcH / 2 - 4, Theme.c(0xAAAAAA));
             return;
         }
         boolean showTrans = MusicModConfig.getShowTranslation() && hasTrans;
@@ -1881,7 +1958,7 @@ public class MusicAppScreen extends Screen {
             // 与歌曲列表同款选取框样式：行背景色区分，文字不高亮
             if (i == selectedLyricLine) {
                 int selH = lineH + (!transAfter && showTrans && line.translation != null ? transH : 0);
-                g.fill(x + 6, ly - 1, x + w - 10, ly + selH, 0x80555577);
+                g.fill(x + 6, ly - 1, x + w - 10, ly + selH, Theme.c(0x80555577));
             }
             String text = line.text;
             if (transAfter && line.translation != null && !line.translation.isEmpty()) {
@@ -1889,14 +1966,14 @@ public class MusicAppScreen extends Screen {
             }
             text = truncate(font, text, textMaxW);
             if (i == active) {
-                g.drawCenteredString(font, "§a§l" + text, x + w / 2, ly, 0x55FF55);
+                UiText.centered(g, font, "§a" + text, x + w / 2, ly, Theme.c(0x55FF55));
             } else {
                 // 0.27.1：选取行文字不高亮，仅靠行背景色区分（与歌曲列表选取框一致）
-                g.drawCenteredString(font, text, x + w / 2, ly, 0xBBBBBB);
+                UiText.centered(g, font, text, x + w / 2, ly, Theme.c(0xBBBBBB));
             }
             if (!transAfter && showTrans && line.translation != null && !line.translation.isEmpty()) {
                 String trans = truncate(font, line.translation, textMaxW - 8);
-                g.drawCenteredString(font, "§8" + trans, x + w / 2, ly + lineH, 0x888899);
+                UiText.centered(g, font, "§8" + trans, x + w / 2, ly + lineH, Theme.c(0x888899));
             }
         }
         g.flush();
@@ -1907,8 +1984,8 @@ public class MusicAppScreen extends Screen {
             float ratio = maxScroll > 0 ? (float) lyricsScrollPx / maxScroll : 0;
             int barH = Math.max(12, trackH * viewH / totalH);
             int barY = trackY + (int) ((trackH - barH) * ratio);
-            g.fill(barX, trackY, barX + 4, trackY + trackH, 0x40000000);
-            g.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
+            g.fill(barX, trackY, barX + 4, trackY + trackH, Theme.c(0x40000000));
+            g.fill(barX, barY, barX + 4, barY + barH, Theme.c(0xFFAAAAAA));
         }
     }
     @Override
@@ -1939,6 +2016,35 @@ public class MusicAppScreen extends Screen {
         int mx = (int) mouseX, my = (int) mouseY;
         Font font = this.font;
         int x = listX(), w = listW(), y0 = LIST_TOP, h = listH();
+
+        // 点击输入框以外的任何位置：只取消输入焦点，不清空输入内容。
+        boolean overSearch = searchBox != null && searchBox.visible
+                && mx >= searchBox.getX() && mx < searchBox.getX() + searchBox.getWidth()
+                && my >= searchBox.getY() && my < searchBox.getY() + searchBox.getHeight();
+        boolean overName = playlistNameBox != null && playlistNameBox.visible
+                && mx >= playlistNameBox.getX() && mx < playlistNameBox.getX() + playlistNameBox.getWidth()
+                && my >= playlistNameBox.getY() && my < playlistNameBox.getY() + playlistNameBox.getHeight();
+        if (!overSearch && !overName) {
+            if (searchBox != null) searchBox.setFocused(false);
+            if (playlistNameBox != null) playlistNameBox.setFocused(false);
+            if (getFocused() instanceof EditBox) setFocused(null);
+        }
+
+        // 歌单详情页再点左侧歌单菜单：显式返回歌单主界面
+        if (nav == Nav.PLAYLIST && openedPlaylistId != null
+                && mx >= 4 && mx <= SIDEBAR_W - 4 && my >= 32 && my <= 52) {
+            Playlist opened = openedPlaylist();
+            openedPlaylistId = null;
+            selectedPlaylistId = opened != null ? opened.getId() : null;
+            playlistDeleteConfirmId = null;
+            scrollOffset = 0;
+            selectedSong = null;
+            if (playlistNameBox != null) {
+                playlistNameBox.setValue(ClientPlaylists.isBuiltIn(opened != null ? opened.getId() : "")
+                        ? "" : (opened != null ? Theme.tr(opened.getName()) : ""));
+            }
+            return true;
+        }
 
         if (addToPlaylistSong != null) {
             return handleAddToPlaylistPopupClick(mx, my);
@@ -1989,7 +2095,7 @@ public class MusicAppScreen extends Screen {
         if (detailSong != null) {
             if (mx >= x - 2 && mx <= x + w + 2 && my >= 4 && my <= y0 + h + 2) {
                 // 关闭按钮
-                String closeText = Lang.tr("§c✕ 关闭");
+                String closeText = Theme.tr("§c✕ 关闭");
                 int closeX = x + w - font.width(closeText) - 6;
                 int closeY = y0 + 4;
                 if (mx >= closeX - 3 && mx <= x + w - 2 && my >= closeY - 2 && my <= closeY + 11) {
@@ -2023,7 +2129,7 @@ public class MusicAppScreen extends Screen {
                     boolean hasTrans = lyrics != null && !lyrics.isEmpty()
                             && LyricsParser.hasTranslation(LyricsParser.parse(lyrics));
                     if (hasTrans) {
-                        String transBtn = MusicModConfig.getShowTranslation() ? Lang.tr("§a[译: 开]") : Lang.tr("§7[译: 关]");
+                        String transBtn = MusicModConfig.getShowTranslation() ? Theme.tr("§a[译: 开]") : Theme.tr("§7[译: 关]");
                         int tX = x + w - font.width(transBtn) - 8;
                         if (mx >= tX && mx <= tX + font.width(transBtn)
                                 && my >= lrcY - 11 && my <= lrcY + 1) {
@@ -2034,8 +2140,8 @@ public class MusicAppScreen extends Screen {
                     }
                     // 跟随按钮
                     if (!lyricsAutoFollow) {
-                        String followBtn = Lang.tr("§e♪ 跟随 »");
-                        int fX = x + w - (hasTrans ? font.width(Lang.tr("§a[译: 开]")) + 20 : 8)
+                        String followBtn = Theme.tr("§e♪ 跟随 »");
+                        int fX = x + w - (hasTrans ? font.width(Theme.tr("§a[译: 开]")) + 20 : 8)
                                 - font.width(followBtn);
                         if (mx >= fX && mx <= fX + font.width(followBtn)
                                 && my >= lrcY - 11 && my <= lrcY + 1) {
@@ -2073,9 +2179,9 @@ public class MusicAppScreen extends Screen {
                 // 详情页顶部：点标题或「« 返回歌单」都返回歌单主菜单
                 if (my >= 4 && my <= 20) {
                     String title = playlistTitle(opened);
-                    int titleW = font.width("§e§l" + title);
+                    int titleW = font.width("§e" + title);
                     int backX = x + titleW + 10;
-                    int backW = font.width(Lang.tr("§7« 返回歌单"));
+                    int backW = font.width(Theme.tr("§7« 返回歌单"));
                     if (mx >= x && mx <= backX + backW) {
                         openedPlaylistId = null;
                         selectedPlaylistId = opened.getId();
@@ -2084,7 +2190,7 @@ public class MusicAppScreen extends Screen {
                         selectedSong = null;
                         if (playlistNameBox != null) {
                             playlistNameBox.setValue(ClientPlaylists.isBuiltIn(opened.getId())
-                                    ? "" : Lang.tr(opened.getName()));
+                                    ? "" : Theme.tr(opened.getName()));
                         }
                         return true;
                     }
@@ -2185,10 +2291,10 @@ public class MusicAppScreen extends Screen {
             // 播放栏区域继续走下方通用处理（进度条拖动、封面跳详情等）
         }
 
-        // ---- Lang.tr("« 返回")（子页面时） ----
+        // ---- Theme.tr("« 返回")（子页面时） ----
         if (subPage != null && my >= 4 && my <= 20 && mx >= x && mx <= x + w) {
-            int backX = x + font.width("§e§l" + subPage.title) + 8;
-            int backW = font.width(Lang.tr("§7« 返回"));
+            int backX = x + font.width("§e" + subPage.title) + 8;
+            int backW = font.width(Theme.tr("§7« 返回"));
             if (mx >= backX && mx <= backX + backW) {
                 closeSearch(); // 0.28.2：界面跳转时收起搜索框
                 subPage = null;
@@ -2199,7 +2305,7 @@ public class MusicAppScreen extends Screen {
         }
 
         // ---- 播放栏封面 → 跳转歌曲详情 ----
-        int coverY2 = playerBarY() + 4;
+        int coverY2 = playerBarY() + 6;
         if (!ClientMusicManager.getInstance().getCurrentSong().isEmpty()
                 && mx >= 6 && mx <= 36 && my >= coverY2 && my <= coverY2 + 30) {
             closeSearch(); // 0.28.2：界面跳转时收起搜索框
@@ -2705,7 +2811,7 @@ public class MusicAppScreen extends Screen {
     private void handleLyricsClick(int my, int lrcY, int lrcH) {
         ClientMusicManager mgr = ClientMusicManager.getInstance();
         boolean isCurrentSong = detailSong.equals(mgr.getCurrentSong());
-        // 查看非播放歌曲详情且未开启Lang.tr("详情双击播放") → 不处理
+        // 查看非播放歌曲详情且未开启Theme.tr("详情双击播放") → 不处理
         if (!isCurrentSong && !MusicModConfig.getDetailDblClickPlay()) return;
         ClientTagStore tags = ClientTagStore.getInstance();
         ClientTagStore.SongInfo info = tags.getSongInfo(detailSong);
@@ -2758,7 +2864,7 @@ public class MusicAppScreen extends Screen {
                 }
             }
         } else {
-            // 查看非播放歌曲详情 + Lang.tr("详情双击播放")开启：双击播放该歌曲并跳转对应进度
+            // 查看非播放歌曲详情 + Theme.tr("详情双击播放")开启：双击播放该歌曲并跳转对应进度
             if (isDoubleHit) {
                 playSongWithQueue(detailSong, currentSongs());
                 NetworkHandler.sendToServer(new C2SMusicActionPacket(
@@ -2785,65 +2891,74 @@ public class MusicAppScreen extends Screen {
 
     private Component styleBtnText() {
         return Component.literal(MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? Lang.tr("播放器风格 (当前)") : Lang.tr("精简模式 (当前)"));
+                ? Theme.tr("播放器风格 (当前)") : Theme.tr("精简模式 (当前)"));
     }
 
     private Component hudBtnText() {
         MusicModConfig.HudMode m = MusicModConfig.getHudMode();
-        String s = m == MusicModConfig.HudMode.LYRICS ? Lang.tr("歌词")
-                : m == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("歌名")
-                : m == MusicModConfig.HudMode.CARD ? Lang.tr("卡片") : Lang.tr("关闭");
+        String s = m == MusicModConfig.HudMode.LYRICS ? Theme.tr("歌词")
+                : m == MusicModConfig.HudMode.SONG_NAME ? Theme.tr("歌名")
+                : m == MusicModConfig.HudMode.CARD ? Theme.tr("卡片") : Theme.tr("关闭");
         return Component.literal("HUD: " + s);
     }
 
     /** 0.29.0：HUD 位置按钮文本 */
     private Component hudPosBtnText() {
         MusicModConfig.HudPosition p = MusicModConfig.getHudPosition();
-        String s = p == MusicModConfig.HudPosition.TOP_LEFT ? Lang.tr("左上角")
-                : p == MusicModConfig.HudPosition.TOP_RIGHT ? Lang.tr("右上角")
-                : p == MusicModConfig.HudPosition.BOTTOM_LEFT ? Lang.tr("左下角")
-                : p == MusicModConfig.HudPosition.BOTTOM_RIGHT ? Lang.tr("右下角") : Lang.tr("顶部中央");
+        String s = p == MusicModConfig.HudPosition.TOP_LEFT ? Theme.tr("左上角")
+                : p == MusicModConfig.HudPosition.TOP_RIGHT ? Theme.tr("右上角")
+                : p == MusicModConfig.HudPosition.BOTTOM_LEFT ? Theme.tr("左下角")
+                : p == MusicModConfig.HudPosition.BOTTOM_RIGHT ? Theme.tr("右下角") : Theme.tr("顶部中央");
         return Component.literal(s);
     }
 
     private Component translationBtnText() {
-        return Component.literal(MusicModConfig.getShowTranslation() ? Lang.tr("显示翻译") : Lang.tr("仅原文"));
+        return Component.literal(MusicModConfig.getShowTranslation() ? Theme.tr("显示翻译") : Theme.tr("仅原文"));
     }
 
     private Component noteIconBtnText() {
-        return Component.literal(MusicModConfig.getShowHudNoteIcon() ? Lang.tr("显示音符") : Lang.tr("隐藏音符"));
+        return Component.literal(MusicModConfig.getShowHudNoteIcon() ? Theme.tr("显示音符") : Theme.tr("隐藏音符"));
     }
 
     private Component lyricsAlignBtnText() {
         return Component.literal(MusicModConfig.getHudLyricsAlign() == MusicModConfig.HudLyricsAlign.CENTER
-                ? Lang.tr("居中对齐") : Lang.tr("左对齐"));
+                ? Theme.tr("居中对齐") : Theme.tr("左对齐"));
     }
 
     private Component hudTransPosBtnText() {
         return Component.literal(MusicModConfig.getHudLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方"));
+                ? Theme.tr("下方") : Theme.tr("后方"));
     }
 
     private Component detailTransPosBtnText() {
         return Component.literal(MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方"));
+                ? Theme.tr("下方") : Theme.tr("后方"));
     }
 
     private Component barTransPosBtnText() {
         return Component.literal(MusicModConfig.getBarLyricsTransPos() == MusicModConfig.LyricsTransPos.BELOW
-                ? Lang.tr("下方") : Lang.tr("后方"));
+                ? Theme.tr("下方") : Theme.tr("后方"));
     }
 
     /** 0.27.0：歌词点击模式按钮文本 */
     private Component lyricsClickModeBtnText() {
         return Component.literal(MusicModConfig.getLyricsClickMode() == MusicModConfig.LyricsClickMode.SINGLE
-                ? Lang.tr("歌词跳转: 单击") : Lang.tr("歌词跳转: 双击"));
+                ? Theme.tr("歌词跳转: 单击") : Theme.tr("歌词跳转: 双击"));
     }
 
     /** 0.27.0：详情双击播放按钮文本 */
+    private Component queueShowPlayedBtnText() {
+        return Component.literal(MusicModConfig.getQueueShowPlayed() ? Theme.tr("§a显示") : Theme.tr("§7隐藏"));
+    }
+
+    private Component themeBtnText() {
+        return Component.literal(MusicModConfig.getUiTheme() == MusicModConfig.UiTheme.LIGHT
+                ? Theme.tr("§e浅色") : Theme.tr("§7深色"));
+    }
+
     private Component detailDblClickPlayBtnText() {
         return Component.literal(MusicModConfig.getDetailDblClickPlay()
-                ? Lang.tr("详情双击播放: 开") : Lang.tr("详情双击播放: 关"));
+                ? Theme.tr("详情双击播放: 开") : Theme.tr("详情双击播放: 关"));
     }
 
     private Component playModeBtnText() {
@@ -2851,7 +2966,7 @@ public class MusicAppScreen extends Screen {
     }
 
     private Component emptyServerBtnText() {
-        return Component.literal(Lang.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName());
+        return Component.literal(Theme.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName());
     }
 
     private void sendAction(byte action) {

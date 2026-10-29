@@ -11,21 +11,27 @@ import java.util.Locale;
 public final class ClientLang {
 
     private static String cachedCode = "";
+    private static String currentCode = "en_us";
     private static boolean cachedEnglish = true;
 
     private ClientLang() {}
 
-    public static boolean isEnglish() {
+    public static String getCode() {
         try {
             String code = Minecraft.getInstance().getLanguageManager().getSelected();
-            if (code == null) code = "";
+            if (code == null || code.isBlank()) code = "en_us";
             if (!code.equals(cachedCode)) {
                 cachedCode = code;
-                cachedEnglish = code.toLowerCase(Locale.ROOT).startsWith("en");
+                currentCode = code.toLowerCase(Locale.ROOT).replace('-', '_');
+                cachedEnglish = currentCode.startsWith("en");
             }
-            return cachedEnglish;
+            return currentCode;
         } catch (Throwable ignored) {
-            return true;
+            return "en_us";
         }
+    }
+
+    public static boolean isEnglish() {
+        return getCode().startsWith("en");
     }
 }

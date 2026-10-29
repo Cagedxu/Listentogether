@@ -50,11 +50,27 @@ public class ClientEventHandler {
     /**
      * 按键监听：M 键打开播放器界面（按配置风格路由）
      */
+    private static boolean fontThemeChecked = false;
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
+        if (!fontThemeChecked) {
+            fontThemeChecked = true;
+            if (!MusicModConfig.isFontThemeSynced()) {
+                MusicModConfig.setFontMode(MusicModConfig.FontMode.GAME);
+                MusicModConfig.setFontThemeSynced(true);
+                MusicModConfig.saveClientConfig();
+                com.musicmod.client.gui.ModFonts.invalidate();
+            }
+        }
         if (mc.player == null) return;
+        // 单人游戏打开任意 GUI 时集成服务器会暂停，音乐服务端 tick 也停止；
+        // 这里在客户端 tick 中补 tick，保证歌曲播完后仍会自动下一首。
+        if (mc.isPaused() && mc.getSingleplayerServer() != null) {
+            com.musicmod.server.MusicServerManager.getInstance().tick();
+        }
         while (ModKeyBindings.OPEN_PLAYER.consumeClick()) {
             if (mc.screen == null) {
                 mc.setScreen(MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.CLASSIC

@@ -48,6 +48,8 @@ public class MusicModConfigScreen extends Screen {
     private VolumeSlider volumeSlider;
     private Button hudBtn, translationBtn, noteIconBtn, lyricsAlignBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
+    private Button queueShowPlayedBtn, hudPosBtn, lyricsClickModeBtn, detailDblClickPlayBtn, themeBtn;
+    
 
     // 服务器配置控件（仅单人游戏）
     private EditBox songsDirBox;
@@ -70,8 +72,8 @@ public class MusicModConfigScreen extends Screen {
 
     /** 内容总高度（像素，不含 CONTENT_TOP 偏移） */
     private int contentHeight() {
-        // 客户端区：标签 + 9 控件
-        int h = LABEL_SPACE + 9 * ITEM_SPACING;
+        // 客户端区：标签 + 14 控件
+        int h = LABEL_SPACE + 14 * ITEM_SPACING;
         // 服务器标签
         h += LABEL_SPACE;
         if (singleplayer) {
@@ -92,6 +94,7 @@ public class MusicModConfigScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        this.font = ModFonts.get();
         singleplayer = Minecraft.getInstance().getSingleplayerServer() != null;
         initialStyle = MusicModConfig.getUiStyle();
         scrollOffset = 0;
@@ -177,11 +180,52 @@ public class MusicModConfigScreen extends Screen {
         }).bounds(leftX, 0, BTN_W, BTN_H).build();
         this.addRenderableWidget(barTransPosBtn);
 
+        queueShowPlayedBtn = Button.builder(queueShowPlayedBtnText(), btn -> {
+            MusicModConfig.setQueueShowPlayed(!MusicModConfig.getQueueShowPlayed());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(queueShowPlayedBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(queueShowPlayedBtn);
+
+        hudPosBtn = Button.builder(hudPosBtnText(), btn -> {
+            MusicModConfig.cycleHudPosition();
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(hudPosBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(hudPosBtn);
+
+        lyricsClickModeBtn = Button.builder(lyricsClickModeBtnText(), btn -> {
+            MusicModConfig.LyricsClickMode next = MusicModConfig.getLyricsClickMode()
+                    == MusicModConfig.LyricsClickMode.SINGLE
+                    ? MusicModConfig.LyricsClickMode.DOUBLE : MusicModConfig.LyricsClickMode.SINGLE;
+            MusicModConfig.setLyricsClickMode(next);
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(lyricsClickModeBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(lyricsClickModeBtn);
+
+        detailDblClickPlayBtn = Button.builder(detailDblClickPlayBtnText(), btn -> {
+            MusicModConfig.setDetailDblClickPlay(!MusicModConfig.getDetailDblClickPlay());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(detailDblClickPlayBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(detailDblClickPlayBtn);
+
+        themeBtn = Button.builder(themeBtnText(), btn -> {
+            MusicModConfig.UiTheme next = MusicModConfig.getUiTheme() == MusicModConfig.UiTheme.DARK
+                    ? MusicModConfig.UiTheme.LIGHT : MusicModConfig.UiTheme.DARK;
+            MusicModConfig.setUiTheme(next);
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(themeBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(themeBtn);
+
         // ---- 服务器配置 ----
         if (singleplayer) {
-            songsDirBox = new EditBox(this.font, leftX, 0, BTN_W, BTN_H,
+            songsDirBox = new BorderedEditBox(this.font, leftX, 0, BTN_W, BTN_H,
                     Component.literal(Lang.tr("歌曲目录")));
             songsDirBox.setMaxLength(256);
+            songsDirBox.setBordered(false);
             songsDirBox.setValue(MusicModConfig.getServerSongsDir());
             this.addRenderableWidget(songsDirBox);
 
@@ -273,6 +317,13 @@ public class MusicModConfigScreen extends Screen {
         positionWidget(hudTransPosBtn, y); y += ITEM_SPACING;
         positionWidget(detailTransPosBtn, y); y += ITEM_SPACING;
         positionWidget(barTransPosBtn, y); y += ITEM_SPACING;
+        positionWidget(queueShowPlayedBtn, y); y += ITEM_SPACING;
+        positionWidget(hudPosBtn, y); y += ITEM_SPACING;
+        positionWidget(lyricsClickModeBtn, y); y += ITEM_SPACING;
+        positionWidget(detailDblClickPlayBtn, y); y += ITEM_SPACING;
+        positionWidget(themeBtn, y); y += ITEM_SPACING;
+        // 精简模式不提供主题功能
+        if (themeBtn != null) themeBtn.visible &= MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER;
         // 服务器配置区（先留出标签空间）
         y += LABEL_SPACE;
         if (singleplayer) {
@@ -292,28 +343,28 @@ public class MusicModConfigScreen extends Screen {
 
         // 绘制标题和分区标签
         int cx = this.width / 2;
-        guiGraphics.drawCenteredString(this.font, this.title, cx, TITLE_Y, 0xFFD700);
+        UiText.centered(guiGraphics, this.font, this.title, cx, TITLE_Y, 0xFFD700);
 
         // 客户端配置标签（baseY=0，控件从 LABEL_SPACE 开始，间距充足不重叠）
         int clientLabelY = CONTENT_TOP - scrollOffset;
         if (clientLabelY >= TITLE_Y + 10) {
-            guiGraphics.drawCenteredString(this.font, Lang.tr("§e—— 客户端配置 ——"), cx, clientLabelY, 0xFFFFFF);
+            UiText.centered(guiGraphics, this.font, Lang.tr("§e—— 客户端配置 ——"), cx, clientLabelY, 0xFFFFFF);
         }
 
         // 服务器配置标签（在服务器区控件上方 LABEL_SPACE 处）
-        int serverLabelBaseY = LABEL_SPACE + 9 * ITEM_SPACING; // 客户端标签+9 个控件之后
+        int serverLabelBaseY = LABEL_SPACE + 14 * ITEM_SPACING; // 客户端标签+14 个控件之后
         int serverLabelY = CONTENT_TOP + serverLabelBaseY - scrollOffset;
         if (serverLabelY >= TITLE_Y + 10 && serverLabelY < CONTENT_TOP + visibleHeight()) {
             String text = singleplayer ? Lang.tr("§e—— 单人游戏配置 ——")
                     : Lang.tr("§e—— 服务器配置 ——");
-            guiGraphics.drawCenteredString(this.font, text, cx, serverLabelY, 0xFFFFFF);
+            UiText.centered(guiGraphics, this.font, text, cx, serverLabelY, 0xFFFFFF);
         }
 
         // 多人非 OP 提示
         if (!singleplayer && !isOp()) {
             int hintY = CONTENT_TOP + serverLabelBaseY + LABEL_SPACE + 2 * ITEM_SPACING - scrollOffset;
             if (hintY >= TITLE_Y + 10 && hintY < CONTENT_TOP + visibleHeight()) {
-                guiGraphics.drawCenteredString(this.font,
+                UiText.centered(guiGraphics, this.font,
                         Lang.tr("§7服务器配置请在服务端 config/musicmod-server.toml 中编辑"),
                         cx, hintY, 0xAAAAAA);
             }
@@ -329,6 +380,17 @@ public class MusicModConfigScreen extends Screen {
             guiGraphics.fill(barX, CONTENT_TOP, barX + 4, CONTENT_TOP + visH, 0x40000000);
             guiGraphics.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
         }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (songsDirBox != null && songsDirBox.visible
+                && !(mouseX >= songsDirBox.getX() && mouseX < songsDirBox.getX() + songsDirBox.getWidth()
+                && mouseY >= songsDirBox.getY() && mouseY < songsDirBox.getY() + songsDirBox.getHeight())) {
+            songsDirBox.setFocused(false);
+            if (getFocused() instanceof EditBox) setFocused(null);
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -419,9 +481,39 @@ public class MusicModConfigScreen extends Screen {
                 ? Lang.tr("下方") : Lang.tr("后方")));
     }
 
+    private Component hudPosBtnText() {
+        MusicModConfig.HudPosition pos = MusicModConfig.getHudPosition();
+        String label = pos == MusicModConfig.HudPosition.TOP_LEFT ? Lang.tr("左上")
+                : pos == MusicModConfig.HudPosition.TOP_RIGHT ? Lang.tr("右上")
+                : pos == MusicModConfig.HudPosition.BOTTOM_LEFT ? Lang.tr("左下")
+                : pos == MusicModConfig.HudPosition.BOTTOM_RIGHT ? Lang.tr("右下")
+                : Lang.tr("顶部中央");
+        return Component.literal(Lang.tr("HUD 位置: ") + label);
+    }
+
+    private Component lyricsClickModeBtnText() {
+        return Component.literal(Lang.tr("歌词跳转: ") + (MusicModConfig.getLyricsClickMode()
+                == MusicModConfig.LyricsClickMode.SINGLE ? Lang.tr("单击") : Lang.tr("双击")));
+    }
+
+    private Component detailDblClickPlayBtnText() {
+        return Component.literal(Lang.tr("详情双击播放: ") + (MusicModConfig.getDetailDblClickPlay()
+                ? Lang.tr("开启") : Lang.tr("关闭")));
+    }
+
+    private Component themeBtnText() {
+        return Component.literal(Lang.tr("界面主题: ") + (MusicModConfig.getUiTheme()
+                == MusicModConfig.UiTheme.LIGHT ? Lang.tr("浅色") : Lang.tr("深色")));
+    }
+
+    private Component queueShowPlayedBtnText() {
+        return Component.literal(Lang.tr("队列显示已播放: ") + (MusicModConfig.getQueueShowPlayed()
+                ? Lang.tr("§a显示") : Lang.tr("§7隐藏")));
+    }
+
     private Component playModeBtnText() {
         com.musicmod.PlayMode pm = MusicModConfig.getServerDefaultPlayMode();
-        return Component.literal(Lang.tr("播放模式: ") + pm.getSymbol() + " " + pm.getDisplayName());
+        return Component.literal(Lang.tr("播放模式: ") + pm.getDisplayName());
     }
 
     private Component emptyServerBtnText() {

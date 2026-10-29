@@ -24,8 +24,13 @@ public class MusicModConfig {
         public final ForgeConfigSpec.DoubleValue volume;
         public final ForgeConfigSpec.EnumValue<HudMode> hudMode;
         public final ForgeConfigSpec.EnumValue<UiStyle> uiStyle;
+        public final ForgeConfigSpec.EnumValue<UiTheme> uiTheme;
+        public final ForgeConfigSpec.EnumValue<FontMode> fontMode;
+        public final ForgeConfigSpec.ConfigValue<String> customFontPath;
+        public final ForgeConfigSpec.BooleanValue fontThemeSynced;
         public final ForgeConfigSpec.BooleanValue showTranslation;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
+        public final ForgeConfigSpec.BooleanValue queueShowPlayed;
         public final ForgeConfigSpec.EnumValue<HudLyricsAlign> hudLyricsAlign;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> hudLyricsTransPos;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> detailLyricsTransPos;
@@ -46,12 +51,27 @@ public class MusicModConfig {
             uiStyle = builder
                     .comment("播放器界面风格：PLAYER = 播放器风格（默认，左侧导航+歌手/专辑/歌词/封面），CLASSIC = 精简模式（紧凑列表）")
                     .defineEnum("uiStyle", UiStyle.PLAYER);
+            uiTheme = builder
+                    .comment("播放器界面主题：DARK = 深色（默认），LIGHT = 浅色")
+                    .defineEnum("uiTheme", UiTheme.DARK);
+            fontMode = builder
+                    .comment("模组界面字体：MOD = 内置 Noto Sans SC（默认），GAME = 游戏字体，CUSTOM = 自定义 TTF/OTF")
+                    .defineEnum("fontMode", FontMode.GAME);
+            customFontPath = builder
+                    .comment("自定义字体路径（fontMode=CUSTOM 时使用，留空则回退内置字体）")
+                    .define("customFontPath", "");
+            fontThemeSynced = builder
+                    .comment("内部标记：主题与默认字体是否已完成首次同步")
+                    .define("fontThemeSynced", false);
             showTranslation = builder
                     .comment("歌词详情中是否显示翻译歌词（双语 LRC 中相同时间戳的第二行）")
                     .define("showTranslation", true);
             showHudNoteIcon = builder
                     .comment("HUD 歌词左侧是否显示音符图标")
                     .define("showHudNoteIcon", true);
+            queueShowPlayed = builder
+                    .comment("播放队列是否显示已经播放过的歌曲（默认显示）")
+                    .define("queueShowPlayed", true);
             hudLyricsAlign = builder
                     .comment("HUD 歌词对齐方式：LEFT = 从左往右（原文译文左对齐），CENTER = 中心对称（原文译文居中对齐）")
                     .defineEnum("hudLyricsAlign", HudLyricsAlign.CENTER);
@@ -86,6 +106,19 @@ public class MusicModConfig {
         PLAYER,
         /** 精简模式：紧凑歌曲列表 */
         CLASSIC
+    }
+
+    /** 播放器界面主题 */
+    public enum UiTheme {
+        DARK,
+        LIGHT
+    }
+
+    /** 模组界面字体来源 */
+    public enum FontMode {
+        MOD,
+        GAME,
+        CUSTOM
     }
 
     /** HUD 显示位置枚举（0.29.0 新增） */
@@ -296,6 +329,69 @@ public class MusicModConfig {
         }
     }
 
+    /** 模组界面字体来源 */
+    public static FontMode getFontMode() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.fontMode.get();
+        } catch (Exception ignored) {}
+        return FontMode.GAME;
+    }
+
+    public static void setFontMode(FontMode mode) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.fontMode.set(mode);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set fontMode config", e);
+        }
+    }
+
+    public static String getCustomFontPath() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.customFontPath.get();
+        } catch (Exception ignored) {}
+        return "";
+    }
+
+    public static void setCustomFontPath(String path) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.customFontPath.set(path == null ? "" : path);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set customFontPath config", e);
+        }
+    }
+
+    public static boolean isFontThemeSynced() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.fontThemeSynced.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    public static void setFontThemeSynced(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.fontThemeSynced.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set fontThemeSynced config", e);
+        }
+    }
+
+    /** 播放器界面主题（默认 DARK） */
+    public static UiTheme getUiTheme() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.uiTheme.get();
+        } catch (Exception ignored) {}
+        return UiTheme.DARK;
+    }
+
+    /** 设置播放器界面主题 */
+    public static void setUiTheme(UiTheme theme) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.uiTheme.set(theme);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set uiTheme config", e);
+        }
+    }
+
     /** 是否显示翻译歌词（默认 true） */
     public static boolean getShowTranslation() {
         try {
@@ -327,6 +423,23 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.showHudNoteIcon.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set showHudNoteIcon config", e);
+        }
+    }
+
+    /** 播放队列是否显示已播放歌曲（默认 true） */
+    public static boolean getQueueShowPlayed() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.queueShowPlayed.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置播放队列是否显示已播放歌曲 */
+    public static void setQueueShowPlayed(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.queueShowPlayed.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set queueShowPlayed config", e);
         }
     }
 

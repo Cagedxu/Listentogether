@@ -72,7 +72,7 @@ public class MusicPlayerScreen extends Screen {
     private VolumeSlider volumeSlider;
 
     public MusicPlayerScreen() {
-        super(Component.literal(Lang.tr("一起听 · 精简模式")));
+        super(Component.literal(Theme.tr("一起听 · 精简模式")));
     }
 
     private boolean isOp() {
@@ -83,6 +83,7 @@ public class MusicPlayerScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        this.font = ModFonts.get();
         refreshLocalList();
 
         int cx = this.width / 2;
@@ -126,11 +127,12 @@ public class MusicPlayerScreen extends Screen {
         this.addRenderableWidget(volumeSlider);
 
         // 0.27.3：搜索框一直显示，宽度与歌曲列表一致，不显示搜索图标
-        searchBox = new EditBox(this.font, listX, LIST_Y - 13, LIST_W, 12,
-                Component.literal(Lang.tr("搜索")));
+        searchBox = new BorderedEditBox(this.font, listX, LIST_Y - 13, LIST_W, 12,
+                Component.literal(Theme.tr("搜索")));
         searchBox.setMaxLength(64);
+        searchBox.setBordered(false);
         // 0.28.2：搜索框为空时显示提示文字
-        searchBox.setHint(Component.literal(Lang.tr("§7搜索歌曲 / 歌手...")));
+        searchBox.setHint(Component.literal(Theme.tr("§7搜索歌曲 / 歌手...")));
         searchBox.setResponder(text -> {
             searchFilter = text.trim().toLowerCase();
             updateFilteredSongs();
@@ -145,24 +147,24 @@ public class MusicPlayerScreen extends Screen {
         int tCount = singleplayer ? 4 : 5;
         int tTotal = tW * tCount + gap * (tCount - 1);
         int tx = cx - tTotal / 2;
-        playModeBtn = addBtn(Lang.tr("顺序播放"), tx, tY, tW,
+        playModeBtn = addBtn(Theme.tr("顺序播放"), tx, tY, tW,
                 () -> sendAction(C2SMusicActionPacket.ACTION_PLAY_MODE));
         tx += tW + gap;
-        Button styleBtn = addBtn(Lang.tr("♪ 播放器"), tx, tY, tW, () -> {
+        Button styleBtn = addBtn(Theme.tr("♪ 播放器"), tx, tY, tW, () -> {
             MusicModConfig.setUiStyle(MusicModConfig.UiStyle.PLAYER);
             MusicModConfig.saveClientConfig();
             Minecraft.getInstance().setScreen(new MusicAppScreen());
         });
         tx += tW + gap;
-        configBtn = addBtn(Lang.tr("⚙ 配置"), tx, tY, tW, () ->
+        configBtn = addBtn(Theme.tr("⚙ 配置"), tx, tY, tW, () ->
                 Minecraft.getInstance().setScreen(new MusicModConfigScreen(this)));
         tx += tW + gap;
         if (!singleplayer) {
-            uploadBtn = addBtn(Lang.tr("⬆ 上传"), tx, tY, tW,
+            uploadBtn = addBtn(Theme.tr("⬆ 上传"), tx, tY, tW,
                     () -> com.musicmod.client.ClientFileUploader.openUploadDialog());
             tx += tW + gap;
         }
-        doneBtn = addBtn(Lang.tr("关闭"), tx, tY, tW, this::onClose);
+        doneBtn = addBtn(Theme.tr("关闭"), tx, tY, tW, this::onClose);
 
         if (!op) {
             playModeBtn.active = false;
@@ -207,22 +209,22 @@ public class MusicPlayerScreen extends Screen {
         Font font = this.font;
 
         // 标题
-        guiGraphics.drawCenteredString(font, this.title, cx, TITLE_Y, 0xFFD700);
+        UiText.centered(guiGraphics, font, this.title, cx, TITLE_Y, Theme.c(0xFFD700));
 
         // 当前播放状态（0.27.0：左侧不显示任何图标，只显示歌曲名称）
         ClientMusicManager mgr = ClientMusicManager.getInstance();
         String statusLine;
         String curTitle = ClientTagStore.getInstance().displayTitle(mgr.getCurrentSong());
         if (mgr.isPlaying() || mgr.isPaused()) {
-            statusLine = "§f" + curTitle;
+            statusLine = (Theme.isLight() ? "§0" : "§f") + curTitle;
         } else {
-            statusLine = Lang.tr("§7未在播放");
+            statusLine = Theme.tr("§7未在播放");
         }
-        guiGraphics.drawCenteredString(font, statusLine, cx, STATUS_Y, 0xFFFFFF);
+        UiText.centered(guiGraphics, font, statusLine, cx, STATUS_Y, Theme.c(0xFFFFFF));
 
         // 歌曲列表背景与边框
-        guiGraphics.fill(listX - 1, LIST_Y - 1, listX + LIST_W + 1, LIST_Y + listH + 1, 0xFF555555);
-        guiGraphics.fill(listX, LIST_Y, listX + LIST_W, LIST_Y + listH, 0xA0000000);
+        guiGraphics.fill(listX - 1, LIST_Y - 1, listX + LIST_W + 1, LIST_Y + listH + 1, Theme.c(0xFF555555));
+        guiGraphics.fill(listX, LIST_Y, listX + LIST_W, LIST_Y + listH, Theme.c(0xA0000000));
 
         // 歌曲行（0.27.0：使用搜索过滤后的 displaySongs）
         String currentSong = mgr.getCurrentSong();
@@ -232,12 +234,12 @@ public class MusicPlayerScreen extends Screen {
             int rowY = LIST_Y + i * ROW_H;
             String song = displaySongs.get(idx);
             if (idx == selectedSong) {
-                guiGraphics.fill(listX, rowY, listX + LIST_W, rowY + ROW_H, 0x80666666);
+                guiGraphics.fill(listX, rowY, listX + LIST_W, rowY + ROW_H, Theme.c(0x80666666));
             }
             boolean isCurrent = song.equals(currentSong);
             // 0.27.0：与播放器风格一致——双竖线=正在播放，三角=暂停
             String prefix = isCurrent ? (mgr.isPaused() ? "§e▶ " : "§a⏸ ") : "  ";
-            int color = isCurrent ? (mgr.isPaused() ? 0xFFFF55 : 0x55FF55) : 0xFFFFFF;
+            int color = isCurrent ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.c(0x55FF55)) : Theme.c(0xFFFFFF);
             // 0.28.1：行右侧显示作者（右对齐，避让滚动条），标题相应截断避让
             ClientTagStore tags = ClientTagStore.getInstance();
             String artist = tags.artist(song);
@@ -249,17 +251,17 @@ public class MusicPlayerScreen extends Screen {
                     ? (LIST_W - 8 - prefixW)
                     : (artistX - (listX + 4) - 8 - prefixW);
             String display = truncate(font, tags.displayTitle(song), Math.max(20, titleAvail));
-            guiGraphics.drawString(font, prefix + display, listX + 4, rowY + 3, color);
+            guiGraphics.drawString(font, prefix + display, listX + 4, rowY + 3, color, false);
             if (!artistText.isEmpty()) {
-                guiGraphics.drawString(font, "§7" + artistText, artistX, rowY + 3, 0xAAAAAA);
+                guiGraphics.drawString(font, "§7" + artistText, artistX, rowY + 3, Theme.c(0xAAAAAA), false);
             }
         }
 
         // 空列表提示
         if (displaySongs.isEmpty()) {
             String emptyMsg = searchFilter.isEmpty()
-                    ? Lang.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Lang.tr("§7（无匹配歌曲）");
-            guiGraphics.drawCenteredString(font, emptyMsg, cx, LIST_Y + listH / 2 - 4, 0xAAAAAA);
+                    ? Theme.tr("§7歌曲列表为空，请先放入歌曲并刷新") : Theme.tr("§7（无匹配歌曲）");
+            UiText.centered(guiGraphics, font, emptyMsg, cx, LIST_Y + listH / 2 - 4, Theme.c(0xAAAAAA));
         }
 
         // 滚动条
@@ -268,29 +270,29 @@ public class MusicPlayerScreen extends Screen {
             float ratio = (float) scrollOffset / Math.max(1, displaySongs.size() - LIST_ROWS);
             int barH = Math.max(12, (int) ((float) listH * LIST_ROWS / displaySongs.size()));
             int barY = LIST_Y + (int) ((listH - barH) * ratio);
-            guiGraphics.fill(barX, LIST_Y, barX + 4, LIST_Y + listH, 0x40000000);
-            guiGraphics.fill(barX, barY, barX + 4, barY + barH, 0xFFAAAAAA);
+            guiGraphics.fill(barX, LIST_Y, barX + 4, LIST_Y + listH, Theme.c(0x40000000));
+            guiGraphics.fill(barX, barY, barX + 4, barY + barH, Theme.c(0xFFAAAAAA));
         }
 
         // 0.27.3：计数与已选提示移至列表下方（搜索框占满列表上方整行）
-        String countText = Lang.tr("§7共 ") + displaySongs.size() + Lang.tr(" 首");
-        guiGraphics.drawString(font, countText, listX, LIST_Y + listH + 2, 0xAAAAAA);
+        String countText = Theme.tr("§7共 ") + displaySongs.size() + Theme.tr(" 首");
+        guiGraphics.drawString(font, countText, listX, LIST_Y + listH + 2, Theme.c(0xAAAAAA), false);
         // 0.28.0：排序标签（点击循环切换），置于计数行右端
-        String sortText = Lang.tr("§7[排序: ") + sortModeName() + "]";
+        String sortText = Theme.tr("§7[排序: ") + sortModeName() + "]";
         int sortW = font.width(sortText);
         int sortX = listX + LIST_W - sortW;
-        guiGraphics.drawString(font, sortText, sortX, LIST_Y + listH + 2, 0xAAAAAA);
+        guiGraphics.drawString(font, sortText, sortX, LIST_Y + listH + 2, Theme.c(0xAAAAAA), false);
         sortLabelX = sortX;
         sortLabelW = sortW;
         if (selectedSong >= 0 && selectedSong < displaySongs.size()) {
-            String sel = Lang.tr("§e已选: §f") + truncate(font,
+            String sel = Theme.t(Theme.tr("§e已选: §f")) + truncate(font,
                     ClientTagStore.getInstance().displayTitle(displaySongs.get(selectedSong)), 90);
             int selX = listX + font.width(countText) + 8;
             int maxSelW = LIST_W - font.width(countText) - 8 - sortW - 6;
             if (font.width(sel) > maxSelW) {
                 sel = truncate(font, sel, Math.max(20, maxSelW));
             }
-            guiGraphics.drawString(font, sel, selX, LIST_Y + listH + 2, 0xAAAAAA);
+            guiGraphics.drawString(font, sel, selX, LIST_Y + listH + 2, Theme.c(0xAAAAAA), false);
         }
     }
 
@@ -307,6 +309,12 @@ public class MusicPlayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (searchBox != null && searchBox.visible
+                && !(mouseX >= searchBox.getX() && mouseX < searchBox.getX() + searchBox.getWidth()
+                && mouseY >= searchBox.getY() && mouseY < searchBox.getY() + searchBox.getHeight())) {
+            searchBox.setFocused(false);
+            if (getFocused() instanceof EditBox) setFocused(null);
+        }
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         if (button != 0) return false;
         int mx = (int) mouseX, my = (int) mouseY;
@@ -503,11 +511,11 @@ public class MusicPlayerScreen extends Screen {
     /** 0.28.0：排序模式显示名 */
     private static String sortModeName() {
         switch (MusicModConfig.getSortMode()) {
-            case TITLE: return Lang.tr("标题");
-            case ARTIST: return Lang.tr("歌手");
-            case ALBUM: return Lang.tr("专辑");
-            case DURATION: return Lang.tr("时长");
-            default: return Lang.tr("标题");
+            case TITLE: return Theme.tr("标题");
+            case ARTIST: return Theme.tr("歌手");
+            case ALBUM: return Theme.tr("专辑");
+            case DURATION: return Theme.tr("时长");
+            default: return Theme.tr("标题");
         }
     }
 

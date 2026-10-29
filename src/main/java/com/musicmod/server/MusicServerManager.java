@@ -49,6 +49,8 @@ public class MusicServerManager {
 
     // 播放队列
     private final List<String> playQueue = new ArrayList<>();
+    /** 未随机的原始队列顺序，切换播放模式时用它重建 playQueue */
+    private final List<String> baseQueue = new ArrayList<>();
     private int queueIndex = -1;
     private com.musicmod.PlayMode playMode = com.musicmod.PlayMode.SEQUENTIAL;  // 播放模式（0.26.0 默认顺序播放）
     private final Random random = new Random();
@@ -186,10 +188,12 @@ public class MusicServerManager {
         if (playQueue.isEmpty() || !playQueue.contains(songName)) {
             playQueue.clear();
             playQueue.addAll(musicLibrary.getSongNames());
+            baseQueue.clear();
+            baseQueue.addAll(musicLibrary.getSongNames());
             rebuiltQueue = true;
         }
-        if (playMode == com.musicmod.PlayMode.SHUFFLE && rebuiltQueue) {
-            shuffleQueueKeepingCurrent();
+        if (rebuiltQueue) {
+            rebuildQueueForMode();
         } else {
             updateQueuePosition(songName);
         }
@@ -226,10 +230,12 @@ public class MusicServerManager {
                 // 队列全部失效，回退全库
                 playQueue.addAll(musicLibrary.getSongNames());
             }
+            baseQueue.clear();
+            baseQueue.addAll(playQueue);
         }
         boolean ok = playMusic(songQuery);
-        if (ok && playMode == com.musicmod.PlayMode.SHUFFLE) {
-            shuffleQueueKeepingCurrent();
+        if (ok) {
+            rebuildQueueForMode();
         }
         return ok;
     }
@@ -309,10 +315,26 @@ public class MusicServerManager {
      */
     public boolean playNext() {
         if (playQueue.isEmpty()) return false;
-        // 随机模式下队列已经在进入随机模式时整体打乱，这里按打乱后的顺序前进。
+        // 随机模式播放到队列最后一首后：重新打乱整个队列，
+        // 新队列以刚才最后一首为首，其余歌曲随机，随后从第二首继续播放。
+        if (playMode == com.musicmod.PlayMode.SHUFFLE
+                && playQueue.size() > 1
+                && queueIndex >= playQueue.size() - 1) {
+            String lastSong = playQueue.get(queueIndex);
+            List<String> rest = new ArrayList<>(playQueue);
+            rest.removeIf(s -> s.equalsIgnoreCase(lastSong));
+            Collections.shuffle(rest, random);
+            playQueue.clear();
+            playQueue.add(lastSong);
+            playQueue.addAll(rest);
+            baseQueue.clear();
+            baseQueue.addAll(playQueue);
+            queueIndex = 0;
+            return playMusic(playQueue.get(1));
+        }
         int nextIdx = queueIndex + 1;
         if (nextIdx >= playQueue.size()) {
-            nextIdx = 0; // 循环播放
+            nextIdx = 0;
         }
         return playMusic(playQueue.get(nextIdx));
     }
@@ -372,23 +394,25 @@ public class MusicServerManager {
     public void setQueue(List<String> songs) {
         playQueue.clear();
         playQueue.addAll(songs);
+        baseQueue.clear();
+        baseQueue.addAll(songs);
         queueIndex = -1;
     }
 
     public void addToQueue(String song) {
         playQueue.add(song);
+        baseQueue.add(song);
     }
 
     public void clearQueue() {
         playQueue.clear();
+        baseQueue.clear();
         queueIndex = -1;
     }
 
     public void setPlayMode(PlayMode mode) {
         this.playMode = mode;
-        if (mode == PlayMode.SHUFFLE) {
-            shuffleQueueKeepingCurrent();
-        }
+        rebuildQueueForMode();
         broadcastPlayMode();
     }
 
@@ -399,9 +423,7 @@ public class MusicServerManager {
     /** 循环切换播放模式 */
     public PlayMode cyclePlayMode() {
         this.playMode = playMode.next();
-        if (this.playMode == PlayMode.SHUFFLE) {
-            shuffleQueueKeepingCurrent();
-        }
+        rebuildQueueForMode();
         broadcastPlayMode();
         return this.playMode;
     }
@@ -420,56 +442,38 @@ public class MusicServerManager {
     }
 
     /**
-     * 当前歌曲 + 即将播放的歌曲（从当前队列位置向后，不包含已经播放过的歌曲）。
-     * 循环单曲只显示当前歌曲。
+     * 按当前播放模式重建队列：
+     * - 顺序/单曲循环：恢复原始队列顺序；
+     * - 随机：恢复原始队列后整体打乱，并把当前歌曲放到队首。
      */
-    private List<String> buildQueueView() {
-        if (playQueue.isEmpty() || currentSong == null || currentSong.isEmpty()) {
-            return new ArrayList<>();
+    private void rebuildQueueForMode() {
+        if (baseQueue.isEmpty() && !playQueue.isEmpty()) {
+            baseQueue.addAll(playQueue);
         }
-        int start = -1;
-        for (int i = 0; i < playQueue.size(); i++) {
-            if (playQueue.get(i).equalsIgnoreCase(currentSong)) {
-                start = i;
-                break;
+        playQueue.clear();
+        playQueue.addAll(baseQueue);
+        if (playMode == com.musicmod.PlayMode.SHUFFLE) {
+            if (playQueue.size() > 1) {
+                Collections.shuffle(playQueue, random);
             }
-        }
-        if (start < 0) return new ArrayList<>();
-        List<String> view = new ArrayList<>();
-        view.add(playQueue.get(start));
-        if (playMode != com.musicmod.PlayMode.LOOP_ONE) {
-            for (int i = start + 1; i < playQueue.size(); i++) {
-                view.add(playQueue.get(i));
-            }
-        }
-        return view;
-    }
-
-    /**
-     * 整体打乱队列，并把当前歌曲放到队首；后续按打乱后的顺序播放。
-     */
-    private void shuffleQueueKeepingCurrent() {
-        if (playQueue.size() < 2) {
-            queueIndex = playQueue.isEmpty() ? -1 : 0;
-            return;
-        }
-        String playingSong = currentSong;
-        Collections.shuffle(playQueue, random);
-        if (playingSong != null && !playingSong.isEmpty()) {
-            int idx = -1;
-            for (int i = 0; i < playQueue.size(); i++) {
-                if (playQueue.get(i).equalsIgnoreCase(playingSong)) {
-                    idx = i;
-                    break;
+            if (currentSong != null && !currentSong.isEmpty()) {
+                int idx = -1;
+                for (int i = 0; i < playQueue.size(); i++) {
+                    if (playQueue.get(i).equalsIgnoreCase(currentSong)) {
+                        idx = i;
+                        break;
+                    }
                 }
+                if (idx > 0) {
+                    String song = playQueue.remove(idx);
+                    playQueue.add(0, song);
+                }
+                queueIndex = idx >= 0 ? 0 : -1;
+            } else {
+                queueIndex = -1;
             }
-            if (idx > 0) {
-                String song = playQueue.remove(idx);
-                playQueue.add(0, song);
-            }
-            queueIndex = idx >= 0 ? 0 : -1;
         } else {
-            queueIndex = -1;
+            updateQueuePosition(currentSong);
         }
     }
 
@@ -695,7 +699,7 @@ public class MusicServerManager {
         if (musicLibrary == null) return;
         List<String> songs = musicLibrary.getSongNames();
         NetworkHandler.sendToPlayer(
-                new S2CSongListPacket(songs, buildQueueView(), currentSong,
+                new S2CSongListPacket(songs, new ArrayList<>(playQueue), currentSong,
                         playing, paused, playMode), player);
         // 批量下发标签摘要
         List<S2CSongTagsPacket.Entry> entries = new ArrayList<>(songs.size());
