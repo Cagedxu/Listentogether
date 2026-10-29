@@ -43,6 +43,16 @@ public final class Theme {
         return isLight() ? 0xFF666670 : 0xFF999999;
     }
 
+    /** 正在播放文字：浅色模式使用暖陶土色，避免绿色与暖色主题冲突。 */
+    public static int nowPlayingText() {
+        return isLight() ? 0xFFB4551E : 0xFF55FF55;
+    }
+
+    /** 正在播放行底色：浅色模式使用暖橙色淡底。 */
+    public static int nowPlayingBg() {
+        return isLight() ? 0x33C97B4A : 0x50226633;
+    }
+
     /** 将深色 UI 颜色转换成当前主题颜色。 */
     public static int c(int dark) {
         boolean noAlpha = (dark & 0xFF000000) == 0;

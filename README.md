@@ -24,12 +24,12 @@ Windows：
 gradlew.bat build
 ```
 
-产物：`build/libs/Listentogether-1.2.0.jar`
+产物：`build/libs/Listentogether-1.2.1.jar`
 
 ## 安装
 
 1. 安装 Forge 1.20.1（47.x）；
-2. 将 `Listentogether-1.2.0.jar` 放入客户端和服务端的 `mods/`；
+2. 将 `Listentogether-1.2.1.jar` 放入客户端和服务端的 `mods/`；
 3. 启动服务器，歌曲目录默认生成在 `config/musicmod/songs/`；
 4. 把 MP3 / OGG / FLAC / WAV / M4A 等歌曲放入该目录，执行 `/music rescan`；
 5. OP（权限等级 2）使用 `/music play <歌名>` 开始播放。

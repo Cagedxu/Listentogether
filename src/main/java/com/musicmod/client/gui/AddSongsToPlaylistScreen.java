@@ -348,6 +348,11 @@ public class AddSongsToPlaylistScreen extends Screen {
     }
 
     @Override
+    public boolean isPauseScreen() {
+        return com.musicmod.config.MusicModConfig.isPauseSingleplayer();
+    }
+
+    @Override
     public void onClose() {
         if (parent != null) {
             Minecraft.getInstance().setScreen(parent);

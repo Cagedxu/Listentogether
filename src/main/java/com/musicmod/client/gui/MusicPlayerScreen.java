@@ -556,4 +556,10 @@ public class MusicPlayerScreen extends Screen {
         }
         return s + ellipsis;
     }
+    @Override
+    public boolean isPauseScreen() {
+        return com.musicmod.config.MusicModConfig.isPauseSingleplayer();
+    }
+
+
 }

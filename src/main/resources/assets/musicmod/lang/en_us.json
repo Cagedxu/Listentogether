@@ -362,5 +362,7 @@
   "自定义字体": "Custom font",
   "§7模组字体": "§7Mod font",
   "选择": "Select",
-  "§7歌曲目录 （单人游戏）": "§7Songs directory (singleplayer)"
+  "§7歌曲目录 （单人游戏）": "§7Songs directory (singleplayer)",
+  "§7打开界面暂停": "§7Pause world on open",
+  "§7打开界面暂停: ": "§7Pause world on open: "
 }

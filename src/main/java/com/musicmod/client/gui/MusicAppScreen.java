@@ -94,7 +94,7 @@ public class MusicAppScreen extends Screen {
 
     // 设置页控件
     private Button styleBtn, hudBtn, settingsPlayModeBtn, applyDirBtn, translationBtn;
-    private Button queueShowPlayedBtn, themeBtn;
+    private Button queueShowPlayedBtn, themeBtn, pauseSingleplayerBtn;
     private Button noteIconBtn, openSongsDirBtn, openCacheDirBtn, uploadBtn;
     private Button lyricsAlignBtn, emptyServerBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
@@ -509,8 +509,15 @@ public class MusicAppScreen extends Screen {
         }).bounds(btnX, LIST_TOP + 342, btnW, 20).build();
         this.addRenderableWidget(themeBtn);
 
+        pauseSingleplayerBtn = Button.builder(pauseBtnText(), btn -> {
+            MusicModConfig.setPauseSingleplayer(!MusicModConfig.isPauseSingleplayer());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(pauseBtnText());
+        }).bounds(btnX, LIST_TOP + 368, btnW, 20).build();
+        this.addRenderableWidget(pauseSingleplayerBtn);
+
         if (singleplayer) {
-            songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 380, sw, 20,
+            songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 412, sw, 20,
                     Component.literal(Theme.tr("歌曲目录")));
             songsDirBox.setMaxLength(256);
             songsDirBox.setBordered(false);
@@ -525,13 +532,13 @@ public class MusicAppScreen extends Screen {
                     com.musicmod.server.MusicServerManager.getInstance().reloadLibrary(dir);
                     requestSongList();
                 }
-            }).bounds(sx, LIST_TOP + 404, sw - 84, 20).build();
+            }).bounds(sx, LIST_TOP + 436, sw - 84, 20).build();
             this.addRenderableWidget(applyDirBtn);
 
             // 打开歌曲文件夹（本地游戏歌曲目录）
             openSongsDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开文件夹")), btn -> {
                 openFolder(resolveSongsDir());
-            }).bounds(sx + sw - 80, LIST_TOP + 404, 80, 20).build();
+            }).bounds(sx + sw - 80, LIST_TOP + 436, 80, 20).build();
             this.addRenderableWidget(openSongsDirBtn);
 
             settingsPlayModeBtn = Button.builder(playModeBtnText(), btn -> {
@@ -540,13 +547,13 @@ public class MusicAppScreen extends Screen {
                 MusicModConfig.saveServerConfig();
                 com.musicmod.server.MusicServerManager.getInstance().setPlayMode(next);
                 btn.setMessage(playModeBtnText());
-            }).bounds(btnX, LIST_TOP + 446, btnW, 20).build();
+            }).bounds(btnX, LIST_TOP + 478, btnW, 20).build();
             this.addRenderableWidget(settingsPlayModeBtn);
         } else {
             // 多人游戏：打开客户端缓存歌曲文件夹
             openCacheDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开缓存歌曲文件夹")), btn -> {
                 openFolder(new File(Minecraft.getInstance().gameDirectory, "musicmod_cache"));
-            }).bounds(sx, LIST_TOP + 380, sw, 20).build();
+            }).bounds(sx, LIST_TOP + 412, sw, 20).build();
             this.addRenderableWidget(openCacheDirBtn);
 
             // 多人游戏：OP 上传音乐文件到服务器（固定在设置页右上角，不随滚动隐藏）
@@ -567,7 +574,7 @@ public class MusicAppScreen extends Screen {
                     btn.setMessage(emptyServerBtnText());
                     NetworkHandler.sendToServer(new C2SMusicActionPacket(
                             C2SMusicActionPacket.ACTION_SET_EMPTY_BEHAVIOR, next.name()));
-                }).bounds(sx, LIST_TOP + 432, sw, 20).build();
+                }).bounds(sx, LIST_TOP + 464, sw, 20).build();
                 this.addRenderableWidget(emptyServerBtn);
             }
         }
@@ -909,6 +916,7 @@ public class MusicAppScreen extends Screen {
         if (detailDblClickPlayBtn != null) detailDblClickPlayBtn.visible = showSettings;
         if (queueShowPlayedBtn != null) queueShowPlayedBtn.visible = showSettings;
         if (themeBtn != null) themeBtn.visible = showSettings;
+        if (pauseSingleplayerBtn != null) pauseSingleplayerBtn.visible = showSettings && singleplayer;
         if (songsDirBox != null) songsDirBox.visible = showSettings;
         if (applyDirBtn != null) applyDirBtn.visible = showSettings;
         if (openSongsDirBtn != null) openSongsDirBtn.visible = showSettings;
@@ -1099,12 +1107,13 @@ public class MusicAppScreen extends Screen {
                 g.fill(x, rowY + ROW_H - 1, x + w - 7, rowY + ROW_H, accent);
                 g.fill(x, rowY, x + 1, rowY + ROW_H, accent);
                 g.fill(x + w - 8, rowY, x + w - 7, rowY + ROW_H, accent);
-            } else if (isCur) g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.c(0x50226633));
-            String numStr = isCur ? (mgr.isPaused() ? "§e▶" : "§a⏸") : String.valueOf(idx + 1);
-            g.drawString(font, numStr, colNum, rowY + 2, isCur ? Theme.c(0xFFFFFF) : Theme.c(0x888888), false);
+            } else if (isCur) g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.nowPlayingBg());
+            String numStr = isCur ? (mgr.isPaused() ? "▶" : "⏸") : String.valueOf(idx + 1);
+            g.drawString(font, numStr, colNum, rowY + 2,
+                    isCur ? Theme.nowPlayingText() : Theme.c(0x888888), false);
             String title = tags.displayTitle(song);
             // 当前播放：播放中绿色、暂停黄色；选中不高亮歌曲名（仅行背景区分）
-            int titleColor = isCur ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.c(0x55FF55))
+            int titleColor = isCur ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.nowPlayingText())
                     : Theme.rowPrimary();
             g.drawString(font, truncate(font, title, titleMax), colNum + 22, rowY + 2, titleColor, false);
             String artist = tags.artist(song);
@@ -1403,12 +1412,13 @@ public class MusicAppScreen extends Screen {
                 g.fill(x, rowY + PLAYLIST_ROW_H - 2, x + w - 6, rowY + PLAYLIST_ROW_H - 1, accent);
                 g.fill(x, rowY, x + 1, rowY + PLAYLIST_ROW_H - 1, accent);
                 g.fill(x + w - 7, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, accent);
-            } else if (isCurrent) g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x50226633));
-            String numStr = isCurrent ? (mgr.isPaused() ? "§e▶" : "§a⏸") : String.valueOf(idx + 1);
-            g.drawString(font, numStr, colNum, rowY + 4, isCurrent ? Theme.c(0xFFFFFF) : Theme.c(0x888888), false);
+            } else if (isCurrent) g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.nowPlayingBg());
+            String numStr = isCurrent ? (mgr.isPaused() ? "▶" : "⏸") : String.valueOf(idx + 1);
+            g.drawString(font, numStr, colNum, rowY + 4,
+                    isCurrent ? Theme.nowPlayingText() : Theme.c(0x888888), false);
             String displayTitle = missing ? song : tags.displayTitle(song);
             int titleColor = missing ? Theme.c(0xFF7777)
-                    : (isCurrent ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.c(0x55FF55)) : Theme.c(0xF0F0F0));
+                    : (isCurrent ? (mgr.isPaused() ? Theme.c(0xFFFF55) : Theme.nowPlayingText()) : Theme.c(0xF0F0F0));
             g.drawString(font, truncate(font, displayTitle, Math.max(30, colArtist - colTitle - 8)),
                     colTitle, rowY + 4, titleColor, false);
             String artist = missing ? Theme.tr("文件缺失") : tags.artist(song);
@@ -1600,9 +1610,15 @@ public class MusicAppScreen extends Screen {
     /** 设置页内容总高度（像素，不含 LIST_TOP 偏移）
      *  0.27.0：新增歌词跳转/详情双击播放按钮，后续控件下移 52px
      *  0.29.0：新增 HUD 位置按钮，后续控件下移 26px */
+    private Component pauseBtnText() {
+        return Component.literal(Theme.tr("§7打开界面暂停: ")
+                + (MusicModConfig.isPauseSingleplayer()
+                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+    }
+
     private int settingsContentH() {
-        if (singleplayer) return 470;
-        return emptyServerBtn != null ? 458 : 432;
+        if (singleplayer) return 502;
+        return emptyServerBtn != null ? 488 : 462;
     }
 
     /** 将设置控件定位到滚动后的位置，并按可见性设置 visible */
@@ -1645,14 +1661,15 @@ public class MusicAppScreen extends Screen {
         positionSetting(detailDblClickPlayBtn, 290, show, visibleH);
         positionSetting(queueShowPlayedBtn, 316, show, visibleH);
         positionSetting(themeBtn, 342, show, visibleH);
+        positionSetting(pauseSingleplayerBtn, 368, show, visibleH);
         if (singleplayer) {
-            positionSetting(songsDirBox, 380, show, visibleH);
-            positionSetting(applyDirBtn, 404, show, visibleH);
-            positionSetting(openSongsDirBtn, 404, show, visibleH);
-            positionSetting(settingsPlayModeBtn, 446, show, visibleH);
+            positionSetting(songsDirBox, 412, show, visibleH);
+            positionSetting(applyDirBtn, 436, show, visibleH);
+            positionSetting(openSongsDirBtn, 436, show, visibleH);
+            positionSetting(settingsPlayModeBtn, 478, show, visibleH);
         } else {
-            positionSetting(openCacheDirBtn, 380, show, visibleH);
-            positionSetting(emptyServerBtn, 432, show, visibleH);
+            positionSetting(openCacheDirBtn, 412, show, visibleH);
+            positionSetting(emptyServerBtn, 464, show, visibleH);
             // 上传按钮固定右上角，避免窗口变矮后滚出可视区域
             if (uploadBtn != null) {
                 int upW = Math.min(100, Math.max(72, w / 5));
@@ -1680,9 +1697,10 @@ public class MusicAppScreen extends Screen {
             drawSettingLabel(g, font, Theme.tr("§7详情双击播放"), x, 296);
             drawSettingLabel(g, font, Theme.tr("§7队列显示已播放"), x, 322);
             drawSettingLabel(g, font, Theme.tr("§7界面主题"), x, 348);
+            if (singleplayer) drawSettingLabel(g, font, Theme.tr("§7打开界面暂停"), x, 374);
             if (singleplayer) {
-                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 358);
-                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 452);
+                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 394);
+                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 484);
             }
             // 多人模式：服务器配置提示固定在右下角（不随滚动）
             if (!singleplayer) {
@@ -3039,6 +3057,11 @@ public class MusicAppScreen extends Screen {
         int offsetX = dx - (drawW - dSize) / 2;
         int offsetY = dy - (drawH - dSize) / 2;
         g.blit(cover, offsetX, offsetY, 0, 0, dSize, dSize, drawW, drawH);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return com.musicmod.config.MusicModConfig.isPauseSingleplayer();
     }
 
     @Override

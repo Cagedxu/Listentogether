@@ -31,6 +31,7 @@ public class MusicModConfig {
         public final ForgeConfigSpec.BooleanValue showTranslation;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
         public final ForgeConfigSpec.BooleanValue queueShowPlayed;
+        public final ForgeConfigSpec.BooleanValue pauseSingleplayer;
         public final ForgeConfigSpec.EnumValue<HudLyricsAlign> hudLyricsAlign;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> hudLyricsTransPos;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> detailLyricsTransPos;
@@ -72,6 +73,9 @@ public class MusicModConfig {
             queueShowPlayed = builder
                     .comment("播放队列是否显示已经播放过的歌曲（默认显示）")
                     .define("queueShowPlayed", true);
+            pauseSingleplayer = builder
+                    .comment("单人游戏打开播放器界面时是否暂停世界（默认 false 不暂停）")
+                    .define("pauseSingleplayer", false);
             hudLyricsAlign = builder
                     .comment("HUD 歌词对齐方式：LEFT = 从左往右（原文译文左对齐），CENTER = 中心对称（原文译文居中对齐）")
                     .defineEnum("hudLyricsAlign", HudLyricsAlign.CENTER);
@@ -440,6 +444,23 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.queueShowPlayed.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set queueShowPlayed config", e);
+        }
+    }
+
+    public static boolean isPauseSingleplayer() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.pauseSingleplayer.get();
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to read pauseSingleplayer config", e);
+        }
+        return false;
+    }
+
+    public static void setPauseSingleplayer(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.pauseSingleplayer.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set pauseSingleplayer config", e);
         }
     }
 

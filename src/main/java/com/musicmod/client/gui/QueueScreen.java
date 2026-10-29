@@ -129,7 +129,7 @@ public class QueueScreen extends Screen {
                 String song = display.get(idx);
                 boolean active = idx == currentDisplayIndex;
                 if (active) {
-                    g.fill(x + 2, rowY, x + w - 8, rowY + ROW_H - 1, Theme.c(0x6033AA66));
+                    g.fill(x + 2, rowY, x + w - 8, rowY + ROW_H - 1, Theme.nowPlayingBg());
                 }
                 if (idx == selectedIndex) {
                     int accent = Theme.c(0xFFFF55);
@@ -288,6 +288,11 @@ public class QueueScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return com.musicmod.config.MusicModConfig.isPauseSingleplayer();
     }
 
     @Override
