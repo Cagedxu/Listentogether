@@ -72,7 +72,10 @@ public class ClientEventHandler {
             com.musicmod.server.MusicServerManager.getInstance().tick();
         }
         while (ModKeyBindings.OPEN_PLAYER.consumeClick()) {
-            if (mc.screen == null) {
+            if (mc.screen instanceof com.musicmod.client.gui.MusicAppScreen
+                    || mc.screen instanceof MusicPlayerScreen) {
+                mc.setScreen(null);
+            } else if (mc.screen == null) {
                 mc.setScreen(MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.CLASSIC
                         ? new MusicPlayerScreen()
                         : new com.musicmod.client.gui.MusicAppScreen());

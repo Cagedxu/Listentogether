@@ -138,11 +138,12 @@ public class QueueScreen extends Screen {
                     g.fill(x + 2, rowY, x + 3, rowY + ROW_H - 1, accent);
                     g.fill(x + w - 9, rowY, x + w - 8, rowY + ROW_H - 1, accent);
                 }
-                String color = active ? "§a" : Theme.isLight() ? "§0" : "§f";
+                String color = active ? "" : Theme.isLight() ? "§0" : "§f";
                 String prefix = (idx + 1) + ". ";
                 int maxTitleW = Math.max(20, w - 24 - font.width(prefix));
                 String title = truncate(font, tags.displayTitle(song), maxTitleW);
-                g.drawString(font, color + prefix + title, x + 8, rowY + 4, Theme.c(0xFFFFFF), false);
+                int textColor = active ? Theme.nowPlayingText() : Theme.c(0xFFFFFF);
+                g.drawString(font, color + prefix + title, x + 8, rowY + 4, textColor, false);
             }
             if (maxScroll > 0) {
                 int barX = x + w - 5;
