@@ -32,6 +32,7 @@ public class MusicModConfig {
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
         public final ForgeConfigSpec.BooleanValue queueShowPlayed;
         public final ForgeConfigSpec.BooleanValue pauseSingleplayer;
+        public final ForgeConfigSpec.BooleanValue transferLimitEnabled;
         public final ForgeConfigSpec.EnumValue<HudLyricsAlign> hudLyricsAlign;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> hudLyricsTransPos;
         public final ForgeConfigSpec.EnumValue<LyricsTransPos> detailLyricsTransPos;
@@ -76,6 +77,9 @@ public class MusicModConfig {
             pauseSingleplayer = builder
                     .comment("单人游戏打开播放器界面时是否暂停世界（默认 false 不暂停）")
                     .define("pauseSingleplayer", false);
+            transferLimitEnabled = builder
+                    .comment("上传/下载音乐时是否启用 2 MB/s 限速（默认 true）")
+                    .define("transferLimitEnabled", true);
             hudLyricsAlign = builder
                     .comment("HUD 歌词对齐方式：LEFT = 从左往右（原文译文左对齐），CENTER = 中心对称（原文译文居中对齐）")
                     .defineEnum("hudLyricsAlign", HudLyricsAlign.CENTER);
@@ -195,6 +199,7 @@ public class MusicModConfig {
         public final ForgeConfigSpec.ConfigValue<String> songsDir;
         public final ForgeConfigSpec.EnumValue<com.musicmod.PlayMode> defaultPlayMode;
         public final ForgeConfigSpec.EnumValue<com.musicmod.EmptyServerBehavior> emptyServerBehavior;
+        public final ForgeConfigSpec.BooleanValue transferLimitEnabled;
 
         Server(ForgeConfigSpec.Builder builder) {
             builder.comment("一起听 服务器配置（修改歌曲目录后需重新扫描生效）").push("server");
@@ -207,6 +212,9 @@ public class MusicModConfig {
             emptyServerBehavior = builder
                     .comment("服务器无人时的音乐行为: CONTINUE(继续播放，默认) | STOP(停止播放) | PAUSE(暂停直到有人加入)")
                     .defineEnum("emptyServerBehavior", com.musicmod.EmptyServerBehavior.CONTINUE);
+            transferLimitEnabled = builder
+                    .comment("向客户端发送歌曲时是否启用 2 MB/s 限速（默认 true）")
+                    .define("transferLimitEnabled", true);
             builder.pop();
         }
     }
@@ -464,6 +472,23 @@ public class MusicModConfig {
         }
     }
 
+    public static boolean isTransferLimitEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.transferLimitEnabled.get();
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to read transferLimitEnabled config", e);
+        }
+        return true;
+    }
+
+    public static void setTransferLimitEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.transferLimitEnabled.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set transferLimitEnabled config", e);
+        }
+    }
+
     /** 获取 HUD 歌词对齐方式（默认 CENTER） */
     public static HudLyricsAlign getHudLyricsAlign() {
         try {
@@ -579,6 +604,21 @@ public class MusicModConfig {
             if (SERVER_SPEC.isLoaded()) return SERVER.songsDir.get();
         } catch (Exception ignored) {}
         return "config/musicmod/songs";
+    }
+
+    public static boolean isServerTransferLimitEnabled() {
+        try {
+            if (SERVER_SPEC.isLoaded()) return SERVER.transferLimitEnabled.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    public static void setServerTransferLimitEnabled(boolean value) {
+        try {
+            if (SERVER_SPEC.isLoaded()) SERVER.transferLimitEnabled.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set server transferLimitEnabled config", e);
+        }
     }
 
     public static com.musicmod.PlayMode getServerDefaultPlayMode() {

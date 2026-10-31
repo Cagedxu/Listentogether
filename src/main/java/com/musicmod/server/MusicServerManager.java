@@ -69,6 +69,7 @@ public class MusicServerManager {
 
     // 上传文件大小上限（默认 100MB）
     private static final long MAX_UPLOAD_SIZE = 100L * 1024 * 1024;
+    private static final long DOWNLOAD_BYTES_PER_SECOND = 2L * 1024 * 1024;
 
     private MusicServerManager() {}
 
@@ -879,6 +880,8 @@ public class MusicServerManager {
             byte[] buffer = new byte[S2CSongDataPacket.MAX_CHUNK_SIZE];
             int chunkIndex = 0;
             int bytesRead;
+            long transferStart = System.nanoTime();
+            long sentBytes = 0;
             while ((bytesRead = is.read(buffer)) != -1) {
                 byte[] chunkData;
                 if (bytesRead == buffer.length) {
@@ -892,9 +895,23 @@ public class MusicServerManager {
                 S2CSongDataPacket packet = new S2CSongDataPacket(
                         songName, fileName, md5, chunkIndex, totalChunks, chunkData, last, elapsed);
                 NetworkHandler.sendToPlayer(packet, player);
+                sentBytes += chunkData.length;
+
+                // 可选限速：默认 2 MB/s，避免下载把服务器带宽和 tick 占满
+                if (com.musicmod.config.MusicModConfig.isServerTransferLimitEnabled()) {
+                    long targetNs = sentBytes * 1_000_000_000L / DOWNLOAD_BYTES_PER_SECOND;
+                    long elapsedNs = System.nanoTime() - transferStart;
+                    if (targetNs > elapsedNs) {
+                        try {
+                            Thread.sleep((targetNs - elapsedNs) / 1_000_000L);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+                }
 
                 chunkIndex++;
-                // 注：Forge 网络层自带拥塞控制与分帧，无需人工限速
             }
         }
         MusicMod.LOGGER.info("Sent song '{}' to player {} ({} chunks, {} bytes)",

@@ -48,7 +48,7 @@ public class MusicModConfigScreen extends Screen {
     private VolumeSlider volumeSlider;
     private Button hudBtn, translationBtn, noteIconBtn, lyricsAlignBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
-    private Button queueShowPlayedBtn, hudPosBtn, lyricsClickModeBtn, detailDblClickPlayBtn, themeBtn, pauseSingleplayerBtn;
+    private Button queueShowPlayedBtn, hudPosBtn, lyricsClickModeBtn, detailDblClickPlayBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
     
 
     // 服务器配置控件（仅单人游戏）
@@ -73,7 +73,7 @@ public class MusicModConfigScreen extends Screen {
     /** 内容总高度（像素，不含 CONTENT_TOP 偏移） */
     private int contentHeight() {
         // 客户端区：标签 + 14 控件
-        int h = LABEL_SPACE + 15 * ITEM_SPACING;
+        int h = LABEL_SPACE + 16 * ITEM_SPACING;
         // 服务器标签
         h += LABEL_SPACE;
         if (singleplayer) {
@@ -227,6 +227,18 @@ public class MusicModConfigScreen extends Screen {
         }).bounds(leftX, 0, BTN_W, BTN_H).build();
         this.addRenderableWidget(pauseSingleplayerBtn);
 
+        transferLimitBtn = Button.builder(transferLimitBtnText(), btn -> {
+            boolean value = !MusicModConfig.isTransferLimitEnabled();
+            MusicModConfig.setTransferLimitEnabled(value);
+            MusicModConfig.saveClientConfig();
+            if (singleplayer) {
+                MusicModConfig.setServerTransferLimitEnabled(value);
+                MusicModConfig.saveServerConfig();
+            }
+            btn.setMessage(transferLimitBtnText());
+        }).bounds(leftX, 0, BTN_W, BTN_H).build();
+        this.addRenderableWidget(transferLimitBtn);
+
         // ---- 服务器配置 ----
         if (singleplayer) {
             songsDirBox = new BorderedEditBox(this.font, leftX, 0, BTN_W, BTN_H,
@@ -330,6 +342,7 @@ public class MusicModConfigScreen extends Screen {
         positionWidget(detailDblClickPlayBtn, y); y += ITEM_SPACING;
         positionWidget(themeBtn, y); y += ITEM_SPACING;
         positionWidget(pauseSingleplayerBtn, y); y += ITEM_SPACING;
+        positionWidget(transferLimitBtn, y); y += ITEM_SPACING;
         if (pauseSingleplayerBtn != null) pauseSingleplayerBtn.visible &= singleplayer;
         // 精简模式不提供主题功能
         if (themeBtn != null) themeBtn.visible &= MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER;
@@ -361,7 +374,7 @@ public class MusicModConfigScreen extends Screen {
         }
 
         // 服务器配置标签（在服务器区控件上方 LABEL_SPACE 处）
-        int serverLabelBaseY = LABEL_SPACE + 15 * ITEM_SPACING; // 客户端标签+15 个控件之后
+        int serverLabelBaseY = LABEL_SPACE + 16 * ITEM_SPACING; // 客户端标签+16 个控件之后
         int serverLabelY = CONTENT_TOP + serverLabelBaseY - scrollOffset;
         if (serverLabelY >= TITLE_Y + 10 && serverLabelY < CONTENT_TOP + visibleHeight()) {
             String text = singleplayer ? Lang.tr("§e—— 单人游戏配置 ——")
@@ -513,6 +526,12 @@ public class MusicModConfigScreen extends Screen {
     private Component detailDblClickPlayBtnText() {
         return Component.literal(Lang.tr("详情双击播放: ") + (MusicModConfig.getDetailDblClickPlay()
                 ? Lang.tr("开启") : Lang.tr("关闭")));
+    }
+
+    private Component transferLimitBtnText() {
+        return Component.literal(Lang.tr("§7限速: ")
+                + (MusicModConfig.isTransferLimitEnabled()
+                        ? "§a" + Lang.tr("开启") : "§8" + Lang.tr("关闭")));
     }
 
     private Component pauseBtnText() {

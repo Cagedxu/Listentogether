@@ -94,7 +94,7 @@ public class MusicAppScreen extends Screen {
 
     // 设置页控件
     private Button styleBtn, hudBtn, settingsPlayModeBtn, applyDirBtn, translationBtn;
-    private Button queueShowPlayedBtn, themeBtn, pauseSingleplayerBtn;
+    private Button queueShowPlayedBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
     private Button noteIconBtn, openSongsDirBtn, openCacheDirBtn, uploadBtn;
     private Button lyricsAlignBtn, emptyServerBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
@@ -516,8 +516,20 @@ public class MusicAppScreen extends Screen {
         }).bounds(btnX, LIST_TOP + 368, btnW, 20).build();
         this.addRenderableWidget(pauseSingleplayerBtn);
 
+        transferLimitBtn = Button.builder(transferLimitBtnText(), btn -> {
+            boolean value = !MusicModConfig.isTransferLimitEnabled();
+            MusicModConfig.setTransferLimitEnabled(value);
+            MusicModConfig.saveClientConfig();
+            if (singleplayer) {
+                MusicModConfig.setServerTransferLimitEnabled(value);
+                MusicModConfig.saveServerConfig();
+            }
+            btn.setMessage(transferLimitBtnText());
+        }).bounds(btnX, LIST_TOP + 394, btnW, 20).build();
+        this.addRenderableWidget(transferLimitBtn);
+
         if (singleplayer) {
-            songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 412, sw, 20,
+            songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 438, sw, 20,
                     Component.literal(Theme.tr("歌曲目录")));
             songsDirBox.setMaxLength(256);
             songsDirBox.setBordered(false);
@@ -532,13 +544,13 @@ public class MusicAppScreen extends Screen {
                     com.musicmod.server.MusicServerManager.getInstance().reloadLibrary(dir);
                     requestSongList();
                 }
-            }).bounds(sx, LIST_TOP + 436, sw - 84, 20).build();
+            }).bounds(sx, LIST_TOP + 462, sw - 84, 20).build();
             this.addRenderableWidget(applyDirBtn);
 
             // 打开歌曲文件夹（本地游戏歌曲目录）
             openSongsDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开文件夹")), btn -> {
                 openFolder(resolveSongsDir());
-            }).bounds(sx + sw - 80, LIST_TOP + 436, 80, 20).build();
+            }).bounds(sx + sw - 80, LIST_TOP + 462, 80, 20).build();
             this.addRenderableWidget(openSongsDirBtn);
 
             settingsPlayModeBtn = Button.builder(playModeBtnText(), btn -> {
@@ -547,13 +559,13 @@ public class MusicAppScreen extends Screen {
                 MusicModConfig.saveServerConfig();
                 com.musicmod.server.MusicServerManager.getInstance().setPlayMode(next);
                 btn.setMessage(playModeBtnText());
-            }).bounds(btnX, LIST_TOP + 478, btnW, 20).build();
+            }).bounds(btnX, LIST_TOP + 504, btnW, 20).build();
             this.addRenderableWidget(settingsPlayModeBtn);
         } else {
             // 多人游戏：打开客户端缓存歌曲文件夹
             openCacheDirBtn = Button.builder(Component.literal(Theme.tr("§b📂 打开缓存歌曲文件夹")), btn -> {
                 openFolder(new File(Minecraft.getInstance().gameDirectory, "musicmod_cache"));
-            }).bounds(sx, LIST_TOP + 412, sw, 20).build();
+            }).bounds(sx, LIST_TOP + 438, sw, 20).build();
             this.addRenderableWidget(openCacheDirBtn);
 
             // 多人游戏：OP 上传音乐文件到服务器（固定在设置页右上角，不随滚动隐藏）
@@ -574,7 +586,7 @@ public class MusicAppScreen extends Screen {
                     btn.setMessage(emptyServerBtnText());
                     NetworkHandler.sendToServer(new C2SMusicActionPacket(
                             C2SMusicActionPacket.ACTION_SET_EMPTY_BEHAVIOR, next.name()));
-                }).bounds(sx, LIST_TOP + 464, sw, 20).build();
+                }).bounds(sx, LIST_TOP + 490, sw, 20).build();
                 this.addRenderableWidget(emptyServerBtn);
             }
         }
@@ -917,6 +929,7 @@ public class MusicAppScreen extends Screen {
         if (queueShowPlayedBtn != null) queueShowPlayedBtn.visible = showSettings;
         if (themeBtn != null) themeBtn.visible = showSettings;
         if (pauseSingleplayerBtn != null) pauseSingleplayerBtn.visible = showSettings && singleplayer;
+        if (transferLimitBtn != null) transferLimitBtn.visible = showSettings;
         if (songsDirBox != null) songsDirBox.visible = showSettings;
         if (applyDirBtn != null) applyDirBtn.visible = showSettings;
         if (openSongsDirBtn != null) openSongsDirBtn.visible = showSettings;
@@ -1610,6 +1623,12 @@ public class MusicAppScreen extends Screen {
     /** 设置页内容总高度（像素，不含 LIST_TOP 偏移）
      *  0.27.0：新增歌词跳转/详情双击播放按钮，后续控件下移 52px
      *  0.29.0：新增 HUD 位置按钮，后续控件下移 26px */
+    private Component transferLimitBtnText() {
+        return Component.literal(Theme.tr("§7限速: ")
+                + (MusicModConfig.isTransferLimitEnabled()
+                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+    }
+
     private Component pauseBtnText() {
         return Component.literal(Theme.tr("§7打开界面暂停: ")
                 + (MusicModConfig.isPauseSingleplayer()
@@ -1617,8 +1636,8 @@ public class MusicAppScreen extends Screen {
     }
 
     private int settingsContentH() {
-        if (singleplayer) return 502;
-        return emptyServerBtn != null ? 488 : 462;
+        if (singleplayer) return 528;
+        return emptyServerBtn != null ? 514 : 488;
     }
 
     /** 将设置控件定位到滚动后的位置，并按可见性设置 visible */
@@ -1662,14 +1681,15 @@ public class MusicAppScreen extends Screen {
         positionSetting(queueShowPlayedBtn, 316, show, visibleH);
         positionSetting(themeBtn, 342, show, visibleH);
         positionSetting(pauseSingleplayerBtn, 368, show, visibleH);
+        positionSetting(transferLimitBtn, 394, show, visibleH);
         if (singleplayer) {
-            positionSetting(songsDirBox, 412, show, visibleH);
-            positionSetting(applyDirBtn, 436, show, visibleH);
-            positionSetting(openSongsDirBtn, 436, show, visibleH);
-            positionSetting(settingsPlayModeBtn, 478, show, visibleH);
+            positionSetting(songsDirBox, 438, show, visibleH);
+            positionSetting(applyDirBtn, 462, show, visibleH);
+            positionSetting(openSongsDirBtn, 462, show, visibleH);
+            positionSetting(settingsPlayModeBtn, 504, show, visibleH);
         } else {
-            positionSetting(openCacheDirBtn, 412, show, visibleH);
-            positionSetting(emptyServerBtn, 464, show, visibleH);
+            positionSetting(openCacheDirBtn, 438, show, visibleH);
+            positionSetting(emptyServerBtn, 490, show, visibleH);
             // 上传按钮固定右上角，避免窗口变矮后滚出可视区域
             if (uploadBtn != null) {
                 int upW = Math.min(100, Math.max(72, w / 5));
@@ -1698,9 +1718,10 @@ public class MusicAppScreen extends Screen {
             drawSettingLabel(g, font, Theme.tr("§7队列显示已播放"), x, 322);
             drawSettingLabel(g, font, Theme.tr("§7界面主题"), x, 348);
             if (singleplayer) drawSettingLabel(g, font, Theme.tr("§7打开界面暂停"), x, 374);
+            drawSettingLabel(g, font, Theme.tr("§7传输限速"), x, 400);
             if (singleplayer) {
-                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 394);
-                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 484);
+                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 420);
+                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 510);
             }
             // 多人模式：服务器配置提示固定在右下角（不随滚动）
             if (!singleplayer) {

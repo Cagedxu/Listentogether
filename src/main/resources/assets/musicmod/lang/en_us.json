@@ -364,5 +364,7 @@
   "选择": "Select",
   "§7歌曲目录 （单人游戏）": "§7Songs directory (singleplayer)",
   "§7打开界面暂停": "§7Pause world on open",
-  "§7打开界面暂停: ": "§7Pause world on open: "
+  "§7打开界面暂停: ": "§7Pause world on open: ",
+  "§7传输限速": "§7Transfer rate limit",
+  "§7限速: ": "§7Rate limit: "
 }
