@@ -113,10 +113,12 @@ public class ClientFileUploader {
                     Thread.sleep(300);
                     java.awt.EventQueue.invokeLater(() -> {
                         try { dlg.toFront(); dlg.requestFocus(); } catch (Throwable ignored) {}
+                        forceForeground(Lang.tr("选择要上传的音乐文件"));
                     });
                     Thread.sleep(800);
                     java.awt.EventQueue.invokeLater(() -> {
                         try { dlg.toFront(); } catch (Throwable ignored) {}
+                        forceForeground(Lang.tr("选择要上传的音乐文件"));
                     });
                 } catch (InterruptedException ignored) {}
             }, "MusicMod-FileDialog-ToFront");
@@ -135,6 +137,22 @@ public class ClientFileUploader {
             if (fd != null) fd.dispose();
             if (owner != null) owner.dispose();
         }
+    }
+
+    /** 通过 JNA 调用 Win32，把原生文件对话框强制拉到前台。 */
+    private static void forceForeground(String title) {
+        try {
+            Class<?> user32 = Class.forName("com.sun.jna.platform.win32.User32");
+            Object instance = user32.getField("INSTANCE").get(null);
+            Class<?> hwndClass = Class.forName("com.sun.jna.platform.win32.WinDef$HWND");
+            java.lang.reflect.Method findWindow = user32.getMethod("FindWindow", String.class, String.class);
+            Object hwnd = findWindow.invoke(instance, "#32770", title);
+            if (hwnd == null) hwnd = findWindow.invoke(instance, null, title);
+            if (hwnd == null) return;
+            try { user32.getMethod("ShowWindow", hwndClass, int.class).invoke(instance, hwnd, 5); } catch (Throwable ignored) {}
+            try { user32.getMethod("BringWindowToTop", hwndClass).invoke(instance, hwnd); } catch (Throwable ignored) {}
+            try { user32.getMethod("SetForegroundWindow", hwndClass).invoke(instance, hwnd); } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     /**

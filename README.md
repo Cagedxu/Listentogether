@@ -1,92 +1,101 @@
-# 一起听 (Listen Together) — Forge 1.20.1
+# 一起听 (Listen Together)
 
 > 作者：deepseekharness 和 joycode
 
-面向 Minecraft **Forge 1.20.1** 的全服同步音乐播放器：服务器统一播放，所有在线玩家同步收听同一首歌。
+一个面向 Minecraft 1.20.1 的**全服同步音乐播放器**模组：由服务器统一播放，所有在线玩家同步收听同一首歌。
 
-## 环境要求
+当前构建：
 
-- Minecraft 1.20.1
-- Forge 47.x
-- Java 17
+- **Forge 1.20.1**：根目录工程，`build/libs/Listentogether-1.2.3.jar`（含英语适配）
+- **Fabric 1.20.1**：`fabric-1.20.1/` 独立工程，`musicmod-fabric-1.20.1-1.0.0.jar`
+- **Fabric 1.21.1 / NeoForge 1.21.1**：按用户要求暂停，暂不继续移植
 
-客户端和服务端都需要安装本模组，且版本必须一致。
+> 内部 mod id 仍为 `musicmod`，以便兼容已有配置、缓存与存档；模组显示名已改为「一起听」。
+
+## 功能
+
+- **全服同步播放**：播放 / 暂停 / 停止 / 上一首 / 下一首 / 进度跳转，所有玩家保持一致。
+- **英语适配**：Forge 1.20.1 的界面、HUD、上传界面、命令反馈与聊天消息支持英文。
+- **精简模式**：无歌单入口的紧凑界面；播放器底部列表按钮可查看正在播放队列。
+- **歌单**：服务器共享歌单，支持新建、重命名、删除、添加 / 移除歌曲、按歌单顺序播放。
+- **内置歌单**：每个玩家本地内置「❤ 收藏」与「🕘 最近播放」；全部歌曲列表中的 ♥ 按钮会直接同步到收藏歌单。
+- 歌曲库扫描与元数据：标题、艺术家、专辑、时长、封面、内嵌歌词与同名 `.lrc`。
+- 歌词：HUD 歌词、详情页滚动歌词、双语翻译、点击歌词跳转；可选 **3D 世界歌词**（视线前方漂浮、逐字浮现、手绘抖动、暖白发光，默认开启；歌词快离开视野或距离过远时可平滑跟随屏幕，默认开启）。
+- 界面：播放器风格（居中窗口 + 标题栏 + 左侧导航 + 列表 + 详情 + 底部播放栏）与精简模式；窗口四周带遮罩，可点击标题栏右侧 ✕ 关闭。
+- 播放模式：顺序播放、单曲循环、随机播放。
+- 音频格式：MP3、OGG、FLAC、WAV、AIFF、AU、M4A、MP4、AAC 等（依内置解码库而定）。
+- 管理员可上传音乐到服务器（优先使用系统文件选择器；无头环境下自动切换为游戏内路径输入）；服务器无人时可配置继续 / 暂停 / 停止。
+
+## 歌单使用
+
+### 图形界面
+
+1. 按 `F8` 打开播放器（默认键位，可在控制设置中修改），点击左侧 **≡ 歌单**。
+2. **新建 / 重命名 / 删除** 面板位于歌单列表右侧：输入名称后点「新建歌单」；选中自定义歌单后可重命名，删除需点两次确认。
+3. 双击歌单进入详情，双击歌曲即可按歌单顺序播放；点击行尾 `✕` 移除歌曲。
+4. 歌单详情右上角提供 **`[ + 添加歌曲 ]`**：打开一个**全新的添加歌曲界面**（独立 Screen，歌单详情页完全不再渲染，后方信息不会透出）。勾选歌曲（可多选）后点 **确定** 批量加入；点 **取消** 或按 ESC 放弃本次勾选并返回歌单详情。
+5. 在「全部歌曲 / 歌手 / 专辑」列表选中歌曲后，点击底部 **`[ + 歌单 ]`**，也可选择目标歌单添加。
+
+「❤ 收藏」与「🕘 最近播放」是本地内置歌单：
+
+- 点击全部歌曲列表中的 ♥ / ♡，会立即从「收藏」加入或移除对应歌曲；
+- 最近播放由服务器实际播放记录自动生成，并保存在 `musicmod_cache/recent_played.txt`；
+- 内置歌单不可重命名 / 删除，但可以在详情页直接移除其中的歌曲。
+
+自定义歌单由服务器统一保存并同步给所有玩家；自定义歌单的编辑与播放操作需要 OP（等级 2）。
+
+### 命令
+
+```text
+/music playlist                       查看所有歌单
+/music playlist show <歌单名>          查看歌单内容
+/music playlist play <歌单名>          按歌单顺序播放（OP）
+/music playlist create <歌单名>        新建歌单（OP）
+/music playlist rename "旧名" <新名>   重命名（OP，含空格的名字需加引号）
+/music playlist delete <歌单名>        删除歌单（OP）
+/music playlist add "歌单名" <歌曲>    添加歌曲（OP，支持标题/文件名模糊匹配）
+/music playlist remove "歌单名" <歌曲> 移除歌曲（OP）
+```
+
+### 存储
+
+歌单保存在服务器工作目录下的：
+
+```text
+config/musicmod/playlists.json
+```
+
+格式为带版本号的 JSON，采用「先写临时文件再原子替换」方式保存；歌曲文件仍放在
+`config/musicmod/songs/`（可通过服务器配置修改）。收藏与最近播放属于玩家本地数据，
+分别位于 `musicmod_cache/favorites.json` 与 `musicmod_cache/recent_played.txt`。
 
 ## 构建
+
+需要 JDK 17 与 Gradle Wrapper：
 
 ```bash
 ./gradlew build
 ```
 
-Windows：
+产物位于 `build/libs/`。客户端与服务端都需要安装本模组；网络协议版本为 `5`，新旧版本不能混连。
 
-```bat
-gradlew.bat build
-```
+## 内置开源音频库
 
-产物：`build/libs/Listentogether-1.2.2.jar`
+这些库以各自许可证分发，感谢作者：
 
-## 安装
+- Tritonus Share 0.3.7.4 — LGPL-2.1
+- MP3SPI 1.9.5.4 + JLayer 1.0.1.4 — LGPL-2.1
+- VorbisSPI 1.0.3.3 + JOrbis 0.0.17.4 — LGPL-2.1
+- jFLAC Codec 1.5.2 — LGPL-2.1
+- JAAD (Tianscar fork) 0.9.4 — Apache-2.0（以上游 POM 声明为准）
 
-1. 安装 Forge 1.20.1（47.x）；
-2. 将 `Listentogether-1.2.2.jar` 放入客户端和服务端的 `mods/`；
-3. 启动服务器，歌曲目录默认生成在 `config/musicmod/songs/`；
-4. 把 MP3 / OGG / FLAC / WAV / M4A 等歌曲放入该目录，执行 `/music rescan`；
-5. OP（权限等级 2）使用 `/music play <歌名>` 开始播放。
-
-## 功能
-
-- 全服同步播放、暂停、停止、上一首 / 下一首、进度跳转；
-- 英语界面与英文聊天/命令反馈（English UI/localization）；
-- 精简模式移除歌单入口；播放器底部列表按钮查看正在播放队列；
-- 添加歌单歌曲界面顶部支持搜索；
-- 界面语言跟随游戏语言切换，支持中文 / 英文即时切换；
-- 服务器共享歌单：新建、重命名、删除、添加 / 移除歌曲、按歌单顺序播放；
-- 每个玩家本地内置「收藏」与「最近播放」；
-- 歌曲标签、封面、内嵌歌词与同名 `.lrc`；
-- HUD 歌词、详情页滚动歌词、双语翻译、点击歌词跳转；
-- 窗口化播放器界面与精简模式；
-- 顺序 / 单曲循环 / 随机播放；
-- OP 上传音乐到服务器（无图形环境时使用游戏内路径输入）；
-- 服务器无人时可配置继续 / 暂停 / 停止。
-
-## 常用命令
-
-所有人：
-
-```text
-/music list [页码]
-/music nowplaying
-/music volume <0-100>
-/music playlist
-/music playlist show <歌单名>
-```
-
-OP（等级 2）：
-
-```text
-/music play <歌名>
-/music pause
-/music stop
-/music next
-/music prev
-/music rescan
-/music playlist create <歌单名>
-/music playlist add "<歌单名>" <歌名>
-/music playlist play <歌单名>
-```
-
-## 配置
-
-- 客户端：`config/musicmod-client.properties`
-- 服务端：`config/musicmod-server.properties`
-- 歌曲：`config/musicmod/songs/`
-- 歌单：`config/musicmod/playlists.json`
+完整版权与源码地址见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，LGPL-2.1 与 Apache-2.0
+全文位于 `LICENSES/`。
 
 ## 许可证
 
-- 本模组自身代码：**MIT**，见 [LICENSE](LICENSE)；
-- 内置音频库：LGPL-2.1 / Apache-2.0，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 与 `LICENSES/`；
+- 本模组自身代码：**GNU General Public License v3.0 only**，见 [LICENSE](LICENSE)。
+- 3D 世界歌词的交互与视觉设计参考了 [DangoMusic](https://github.com/Sorihiko/DangoMusic)（GPL-3.0）；本模组为独立实现，未复制其源代码。
+- 第三方音频库：LGPL-2.1 / Apache-2.0，见上述第三方声明。
 - 本模组不附带任何音乐、封面或歌词文件；歌曲由服务器管理员自行提供。
 
-Minecraft 是 Mojang Studios 的商标。本项目是非官方模组，与 Mojang 或 Forge 没有隶属或背书关系。

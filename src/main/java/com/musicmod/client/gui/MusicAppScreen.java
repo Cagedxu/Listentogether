@@ -95,6 +95,8 @@ public class MusicAppScreen extends Screen {
     // 设置页控件
     private Button styleBtn, hudBtn, settingsPlayModeBtn, applyDirBtn, translationBtn;
     private Button queueShowPlayedBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
+    private Button worldLyricsBtn;
+    private Button worldLyricsFollowBtn;
     private Button noteIconBtn, openSongsDirBtn, openCacheDirBtn, uploadBtn;
     private Button lyricsAlignBtn, emptyServerBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
@@ -528,6 +530,20 @@ public class MusicAppScreen extends Screen {
         }).bounds(btnX, LIST_TOP + 394, btnW, 20).build();
         this.addRenderableWidget(transferLimitBtn);
 
+        worldLyricsBtn = Button.builder(worldLyricsBtnText(), btn -> {
+            MusicModConfig.setWorldLyricsEnabled(!MusicModConfig.isWorldLyricsEnabled());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(worldLyricsBtnText());
+        }).bounds(btnX, LIST_TOP + 530, btnW, 20).build();
+        this.addRenderableWidget(worldLyricsBtn);
+
+        worldLyricsFollowBtn = Button.builder(worldLyricsFollowBtnText(), btn -> {
+            MusicModConfig.setWorldLyricsFollowEnabled(!MusicModConfig.isWorldLyricsFollowEnabled());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(worldLyricsFollowBtnText());
+        }).bounds(btnX, LIST_TOP + 556, btnW, 20).build();
+        this.addRenderableWidget(worldLyricsFollowBtn);
+
         if (singleplayer) {
             songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 438, sw, 20,
                     Component.literal(Theme.tr("歌曲目录")));
@@ -929,7 +945,9 @@ public class MusicAppScreen extends Screen {
         if (queueShowPlayedBtn != null) queueShowPlayedBtn.visible = showSettings;
         if (themeBtn != null) themeBtn.visible = showSettings;
         if (pauseSingleplayerBtn != null) pauseSingleplayerBtn.visible = showSettings && singleplayer;
-        if (transferLimitBtn != null) transferLimitBtn.visible = showSettings;
+        if (transferLimitBtn != null) transferLimitBtn.visible = showSettings && !singleplayer;
+        if (worldLyricsBtn != null) worldLyricsBtn.visible = showSettings;
+        if (worldLyricsFollowBtn != null) worldLyricsFollowBtn.visible = showSettings;
         if (songsDirBox != null) songsDirBox.visible = showSettings;
         if (applyDirBtn != null) applyDirBtn.visible = showSettings;
         if (openSongsDirBtn != null) openSongsDirBtn.visible = showSettings;
@@ -1192,7 +1210,6 @@ public class MusicAppScreen extends Screen {
             int rowY = y0 + i * (ROW_H + 4);
             String key = keys.get(idx);
             int cnt = groups.get(key).size();
-            g.fill(x, rowY, x + w - 7, rowY + ROW_H + 2, Theme.c(0x60333350));
             g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, key, w - 80), x + 6, rowY + 3, Theme.c(0xF0F0F0), false);
             String cntStr = (Theme.isLight() ? "§8" : "§7") + cnt + Theme.tr(" 首 »");
             g.drawString(font, cntStr, x + w - font.width(cntStr) - 6, rowY + 3, Theme.c(0xAAAAAA), false);
@@ -1245,19 +1262,11 @@ public class MusicAppScreen extends Screen {
         g.fill(x, LIST_TOP, x + listAreaW, LIST_TOP + h, Theme.listBg());
 
         Set<String> librarySongs = new HashSet<>(allSongs());
-        String currentSong = ClientMusicManager.getInstance().getCurrentSong();
         for (int i = 0; i < rows; i++) {
             int idx = scrollOffset + i;
             if (idx >= playlists.size()) break;
             Playlist playlist = playlists.get(idx);
             int rowY = LIST_TOP + i * PLAYLIST_ROW_H;
-            boolean selected = playlist.getId().equals(selectedPlaylistId);
-            boolean builtInRow = ClientPlaylists.isBuiltIn(playlist.getId());
-            // 收藏/最近播放不显示“包含当前歌曲”的绿色高亮
-            boolean containsCurrent = !builtInRow && !currentSong.isEmpty()
-                    && playlist.contains(currentSong);
-            if (selected) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x80555577));
-            else if (containsCurrent) g.fill(x, rowY, x + listAreaW - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x30226633));
             String icon = ClientPlaylists.isFavorites(playlist.getId()) ? "§c❤"
                     : ClientPlaylists.isRecent(playlist.getId()) ? "§9🕘" : "§7♫";
             g.drawString(font, icon, x + 6, rowY + 4, Theme.c(0xFFFFFF), false);
@@ -1635,9 +1644,21 @@ public class MusicAppScreen extends Screen {
                         ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
     }
 
+    private Component worldLyricsBtnText() {
+        return Component.literal(Theme.tr("§73D 歌词: ")
+                + (MusicModConfig.isWorldLyricsEnabled()
+                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+    }
+
+    private Component worldLyricsFollowBtnText() {
+        return Component.literal(Theme.tr("§73D 歌词跟随: ")
+                + (MusicModConfig.isWorldLyricsFollowEnabled()
+                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+    }
+
     private int settingsContentH() {
-        if (singleplayer) return 528;
-        return emptyServerBtn != null ? 514 : 488;
+        if (singleplayer) return 534;
+        return 568;
     }
 
     /** 将设置控件定位到滚动后的位置，并按可见性设置 visible */
@@ -1681,15 +1702,20 @@ public class MusicAppScreen extends Screen {
         positionSetting(queueShowPlayedBtn, 316, show, visibleH);
         positionSetting(themeBtn, 342, show, visibleH);
         positionSetting(pauseSingleplayerBtn, 368, show, visibleH);
-        positionSetting(transferLimitBtn, 394, show, visibleH);
+        positionSetting(transferLimitBtn, 394, show && !singleplayer, visibleH);
         if (singleplayer) {
-            positionSetting(songsDirBox, 438, show, visibleH);
-            positionSetting(applyDirBtn, 462, show, visibleH);
-            positionSetting(openSongsDirBtn, 462, show, visibleH);
-            positionSetting(settingsPlayModeBtn, 504, show, visibleH);
+            // 单人游戏不需要“传输限速”；歌曲目录放到设置页最下方。
+            positionSetting(settingsPlayModeBtn, 394, show, visibleH);
+            positionSetting(worldLyricsBtn, 420, show, visibleH);
+            positionSetting(worldLyricsFollowBtn, 446, show, visibleH);
+            positionSetting(songsDirBox, 484, show, visibleH);
+            positionSetting(applyDirBtn, 508, show, visibleH);
+            positionSetting(openSongsDirBtn, 508, show, visibleH);
         } else {
             positionSetting(openCacheDirBtn, 438, show, visibleH);
             positionSetting(emptyServerBtn, 490, show, visibleH);
+            positionSetting(worldLyricsBtn, 516, show, visibleH);
+            positionSetting(worldLyricsFollowBtn, 542, show, visibleH);
             // 上传按钮固定右上角，避免窗口变矮后滚出可视区域
             if (uploadBtn != null) {
                 int upW = Math.min(100, Math.max(72, w / 5));
@@ -1718,10 +1744,15 @@ public class MusicAppScreen extends Screen {
             drawSettingLabel(g, font, Theme.tr("§7队列显示已播放"), x, 322);
             drawSettingLabel(g, font, Theme.tr("§7界面主题"), x, 348);
             if (singleplayer) drawSettingLabel(g, font, Theme.tr("§7打开界面暂停"), x, 374);
-            drawSettingLabel(g, font, Theme.tr("§7传输限速"), x, 400);
+            if (!singleplayer) drawSettingLabel(g, font, Theme.tr("§7传输限速"), x, 400);
             if (singleplayer) {
-                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 420);
-                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 510);
+                drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 400);
+                drawSettingLabel(g, font, Theme.tr("§73D 世界歌词"), x, 426);
+                drawSettingLabel(g, font, Theme.tr("§73D 歌词跟随屏幕"), x, 452);
+                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 470);
+            } else {
+                drawSettingLabel(g, font, Theme.tr("§73D 世界歌词"), x, 522);
+                drawSettingLabel(g, font, Theme.tr("§73D 歌词跟随屏幕"), x, 548);
             }
             // 多人模式：服务器配置提示固定在右下角（不随滚动）
             if (!singleplayer) {
@@ -1994,10 +2025,10 @@ public class MusicAppScreen extends Screen {
             if (ly > lrcY + lrcH) break;
             LyricsParser.Line line = lines.get(i);
             // 0.27.1：选取框（DOUBLE 模式/详情双击播放第一次点击选中的行）——
-            // 与歌曲列表同款选取框样式：行背景色区分，文字不高亮
+            // 第一次点击只画选择框，不再铺整行高亮
             if (i == selectedLyricLine) {
                 int selH = lineH + (!transAfter && showTrans && line.translation != null ? transH : 0);
-                g.fill(x + 6, ly - 1, x + w - 10, ly + selH, Theme.c(0x80555577));
+                g.renderOutline(x + 6, ly - 1, w - 16, selH, Theme.c(0xFFB4551E));
             }
             String text = line.text;
             if (transAfter && line.translation != null && !line.translation.isEmpty()) {

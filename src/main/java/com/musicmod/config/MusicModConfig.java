@@ -29,6 +29,8 @@ public class MusicModConfig {
         public final ForgeConfigSpec.ConfigValue<String> customFontPath;
         public final ForgeConfigSpec.BooleanValue fontThemeSynced;
         public final ForgeConfigSpec.BooleanValue showTranslation;
+        public final ForgeConfigSpec.BooleanValue worldLyrics;
+        public final ForgeConfigSpec.BooleanValue worldLyricsFollow;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
         public final ForgeConfigSpec.BooleanValue queueShowPlayed;
         public final ForgeConfigSpec.BooleanValue pauseSingleplayer;
@@ -68,6 +70,12 @@ public class MusicModConfig {
             showTranslation = builder
                     .comment("歌词详情中是否显示翻译歌词（双语 LRC 中相同时间戳的第二行）")
                     .define("showTranslation", true);
+            worldLyrics = builder
+                    .comment("是否在世界中显示 3D 漂浮歌词（视线前方、逐字浮现、带发光）")
+                    .define("worldLyrics", true);
+            worldLyricsFollow = builder
+                    .comment("3D 歌词即将离开视野或距离过远时，是否平滑跟随玩家屏幕（默认 true）")
+                    .define("worldLyricsFollow", true);
             showHudNoteIcon = builder
                     .comment("HUD 歌词左侧是否显示音符图标")
                     .define("showHudNoteIcon", true);
@@ -418,6 +426,40 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.showTranslation.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set showTranslation config", e);
+        }
+    }
+
+    /** 是否在世界中显示 3D 漂浮歌词（默认 true） */
+    public static boolean isWorldLyricsEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.worldLyrics.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置是否显示 3D 世界歌词 */
+    public static void setWorldLyricsEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.worldLyrics.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set worldLyrics config", e);
+        }
+    }
+
+    /** 3D 歌词离开视野时是否跟随玩家屏幕（默认 true） */
+    public static boolean isWorldLyricsFollowEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.worldLyricsFollow.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置 3D 歌词是否跟随玩家屏幕 */
+    public static void setWorldLyricsFollowEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.worldLyricsFollow.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set worldLyricsFollow config", e);
         }
     }
 

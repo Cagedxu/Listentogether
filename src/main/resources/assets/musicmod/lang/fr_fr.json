@@ -128,5 +128,9 @@
   "§a歌名": "§aTitre",
   "§d卡片": "§dCarte",
   "§c关闭": "§cDésactivé",
-  "§7仅原文": "§7Original seulement"
+  "§7仅原文": "§7Original seulement",
+  "§73D 歌词: ": "§73D paroles : ",
+  "§73D 世界歌词": "§73D paroles dans le monde",
+  "§73D 歌词跟随: ": "§73D suivi : ",
+  "§73D 歌词跟随屏幕": "§73D suivre l’écran"
 }

@@ -44,6 +44,7 @@ public class ClientEventHandler {
         lyricsCacheSong = "";
         lyricsCacheText = null;
         lyricsCacheLines = null;
+        WorldLyricsRenderer.reset();
         MusicMod.LOGGER.info(Lang.tr("一起听 client stopped playback on disconnect"));
     }
 
