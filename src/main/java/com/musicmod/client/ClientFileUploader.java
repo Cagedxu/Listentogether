@@ -6,9 +6,12 @@ import com.musicmod.audio.MusicLibrary;
 import com.musicmod.config.MusicModConfig;
 import com.musicmod.audio.SongTags;
 import com.musicmod.audio.TagReader;
+import com.musicmod.client.tags.TagEditData;
+import com.musicmod.client.tags.TagEditorScreen;
 import com.musicmod.network.NetworkHandler;
 import com.musicmod.network.packet.C2SUploadSongPacket;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
 
 import java.awt.FileDialog;
@@ -17,6 +20,8 @@ import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * 客户端：管理员从本地上传音乐文件到服务器。
@@ -26,6 +31,8 @@ import java.nio.file.Files;
 public class ClientFileUploader {
 
     private static final long UPLOAD_BYTES_PER_SECOND = 2L * 1024 * 1024;
+    private static final Deque<File> UPLOAD_QUEUE = new ArrayDeque<>();
+    private static boolean uploadFlowActive = false;
 
     /**
      * 打开上传入口：正常情况弹出系统文件选择器；无头环境回退到游戏内路径输入界面。
@@ -164,21 +171,101 @@ public class ClientFileUploader {
         uploadLocalFiles(new File[]{file});
     }
 
+    private static void uploadLocalFile(File file, boolean overwrite) {
+        Thread thread = new Thread(() -> doUploadFile(file, overwrite), "MusicMod-Upload");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     /** 多选时按顺序逐个上传，避免并发占满服务器带宽。 */
     public static void uploadLocalFiles(File[] files) {
         if (files == null || files.length == 0) return;
-        File[] copy = files.clone();
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            synchronized (UPLOAD_QUEUE) {
+                for (File f : files) {
+                    if (f != null && f.isFile()) UPLOAD_QUEUE.add(f);
+                }
+                if (uploadFlowActive) return;
+                uploadFlowActive = true;
+            }
+            processNextUpload();
+        });
+    }
+
+    private static void processNextUpload() {
+        File next;
+        synchronized (UPLOAD_QUEUE) {
+            next = UPLOAD_QUEUE.poll();
+            if (next == null) {
+                uploadFlowActive = false;
+                return;
+            }
+        }
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> prepareUpload(next));
+    }
+
+    /** 五项标签缺失时先询问：直接上传，或编辑标签后上传。 */
+    private static void prepareUpload(File file) {
+        SongTags tags = TagReader.read(file);
+        boolean missing = blank(tags.title) || blank(tags.artist) || blank(tags.album)
+                || tags.coverImage == null || tags.coverImage.length == 0
+                || blank(tags.lyrics);
+        if (!missing) {
+            startUpload(file);
+            return;
+        }
+        StringBuilder what = new StringBuilder();
+        if (blank(tags.title)) what.append(Lang.tr("曲名 "));
+        if (blank(tags.artist)) what.append(Lang.tr("作者 "));
+        if (blank(tags.album)) what.append(Lang.tr("专辑 "));
+        if (tags.coverImage == null || tags.coverImage.length == 0) what.append(Lang.tr("封面 "));
+        if (blank(tags.lyrics)) what.append(Lang.tr("歌词 "));
+        TagEditData initial = new TagEditData(tags.title, tags.artist, tags.album, tags.lyrics,
+                tags.coverImage, tags.coverMime, "");
+        Minecraft mc = Minecraft.getInstance();
+        final boolean[] handled = {false};
+        ConfirmScreen confirm = new ConfirmScreen(edit -> {
+            handled[0] = true;
+            mc.setScreen(null);
+            if (edit) {
+                mc.setScreen(new TagEditorScreen(file, initial, data -> startUpload(file),
+                        ClientFileUploader::processNextUpload));
+            } else {
+                startUpload(file);
+            }
+        }, Component.literal(Lang.tr("歌曲标签不完整")),
+                Component.literal(Lang.tr("缺少: ") + what.toString().trim()
+                        + "\n" + Lang.tr("要先编辑标签，还是直接上传？")),
+                Component.literal(Lang.tr("编辑标签")),
+                Component.literal(Lang.tr("直接上传"))) {
+            @Override
+            public void onClose() {
+                super.onClose();
+                if (!handled[0]) processNextUpload();
+            }
+        };
+        mc.setScreen(confirm);
+    }
+
+    private static boolean blank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private static void startUpload(File file) {
         Thread thread = new Thread(() -> {
-            for (File f : copy) {
-                if (Thread.currentThread().isInterrupted()) break;
-                doUploadFile(f);
+            try {
+                doUploadFile(file, false);
+            } finally {
+                processNextUpload();
             }
         }, "MusicMod-Upload");
         thread.setDaemon(true);
         thread.start();
     }
 
-    private static void doUploadFile(File file) {
+    private static void doUploadFile(File file, boolean overwrite) {
         try {
             if (!file.isFile()) {
                 notifyMc(Lang.tr("§c[一起听] 文件不存在: ") + file.getAbsolutePath());
@@ -205,6 +292,18 @@ public class ClientFileUploader {
             }
 
             String uploadName = taggedUploadName(file, fileName, ext);
+            if (!overwrite && ClientMusicManager.getInstance().getLastSongList().contains(uploadName)) {
+                Minecraft mc = Minecraft.getInstance();
+                mc.execute(() -> mc.setScreen(new ConfirmScreen(ok -> {
+                    mc.setScreen(null);
+                    if (ok) uploadLocalFile(file, true);
+                }, Component.literal(Lang.tr("歌曲已存在")),
+                        Component.literal(Lang.tr("已存在同名歌曲: ") + uploadName
+                                + "\n" + Lang.tr("是否覆盖？")),
+                        Component.literal(Lang.tr("覆盖")),
+                        Component.literal(Lang.tr("取消")))));
+                return;
+            }
             notifyMc(Lang.tr("§e[一起听] 正在上传: ") + uploadName + " ...");
 
             byte[] fileData = Files.readAllBytes(file.toPath());

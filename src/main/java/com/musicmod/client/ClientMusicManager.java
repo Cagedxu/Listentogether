@@ -4,6 +4,8 @@ import com.musicmod.MusicMod;
 import com.musicmod.PlayMode;
 import com.musicmod.audio.AudioEngine;
 import com.musicmod.audio.SongBufferInputStream;
+import com.musicmod.client.tags.AudioTagWriter;
+import com.musicmod.client.tags.TagEditData;
 import com.musicmod.config.MusicModConfig;
 import com.musicmod.network.NetworkHandler;
 import com.musicmod.network.packet.C2SRequestSongDataPacket;
@@ -132,7 +134,22 @@ public class ClientMusicManager {
     /**
      * 收到播放指令
      */
+    private void cancelIncompleteTransfers() {
+        for (String key : receiveStates.keySet()) {
+            FileReceiveState state = receiveStates.remove(key);
+            if (state == null) continue;
+            state.bufferStream.close();
+            try {
+                state.fileOut.close();
+            } catch (IOException ignored) {}
+            state.tempFile.delete();
+        }
+    }
+
     public void onPlayRequest(String songName, String fileName, String md5, long fileSize, long offsetMs) {
+        // 切歌/重播前清掉上一次未完成的流：旧缓冲流关闭后 writeChunk 会丢弃数据，
+        // 若继续复用这个 state，切回未缓存完的歌就会永久等不到可读数据而卡住。
+        cancelIncompleteTransfers();
         this.pendingSongName = songName;
         this.pendingFileName = fileName;
         this.pendingMd5 = md5;
@@ -172,7 +189,13 @@ public class ClientMusicManager {
     /**
      * 收到停止指令
      */
+    /** 当前是否有歌曲仍在接收/缓冲，尚未落到完整缓存。 */
+    public boolean isBuffering() {
+        return !receiveStates.isEmpty();
+    }
+
     public void onStop() {
+        cancelIncompleteTransfers();
         audioEngine.stop();
         pendingSongName = "";
         pendingFileName = "";
@@ -252,7 +275,7 @@ public class ClientMusicManager {
             receiveStates.remove(stateKey);
 
             // 保存为正式缓存文件
-            File finalFile = new File(cacheDir, md5 + "_" + fileName);
+            File finalFile = new File(cacheDir, sanitizeCacheName(fileName));
             try {
                 Files.move(state.tempFile.toPath(), finalFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 MusicMod.LOGGER.info("Song file saved to cache: {} ({} bytes)", finalFile.getName(), finalFile.length());
@@ -406,7 +429,29 @@ public class ClientMusicManager {
     /**
      * 获取缓存文件
      */
+    /** 删除本地缓存中与歌曲名对应的文件（兼容旧 md5_ 前缀）。 */
+    public void deleteCachedSong(String songName) {
+        if (cacheDir == null || !cacheDir.isDirectory() || songName == null) return;
+        String target = sanitizeCacheName(songName);
+        File[] files = cacheDir.listFiles((dir, name) -> name.equals(target) || name.endsWith("_" + target));
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isFile()) f.delete();
+        }
+    }
+
+    private static String sanitizeCacheName(String fileName) {
+        String n = fileName == null ? "song.bin" : fileName.replace('\\', '/');
+        int slash = n.lastIndexOf('/');
+        if (slash >= 0) n = n.substring(slash + 1);
+        n = n.replace(':', '_').replace('*', '_').replace('?', '_')
+                .replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_');
+        return n.isBlank() ? "song.bin" : n;
+    }
+
     private File getCachedFile(String md5, String fileName) {
+        File byName = new File(cacheDir, sanitizeCacheName(fileName));
+        if (byName.exists()) return byName;
         File cached = new File(cacheDir, md5 + "_" + fileName);
         if (cached.exists()) return cached;
         // 兼容旧命名格式（只有MD5）
@@ -538,5 +583,36 @@ public class ClientMusicManager {
     public void setHudMode(com.musicmod.config.MusicModConfig.HudMode mode) {
         MusicModConfig.setHudMode(mode);
         MusicModConfig.saveClientConfig();
+    }
+
+    /** 服务端标签更新后，同步写回已缓存文件，避免重新下载。 */
+    public void syncCachedTags(String songName, String title, String artist, String album,
+                               String lyrics, byte[] cover, String coverMime) {
+        if (cacheDir == null || songName == null) return;
+        File target = null;
+        for (File f : cacheDir.listFiles()) {
+            if (f.isFile() && (f.getName().equals(songName) || f.getName().endsWith("_" + songName))) {
+                target = f;
+                break;
+            }
+        }
+        if (target == null) return;
+        final File file = target;
+        Thread t = new Thread(() -> {
+            try {
+                TagEditData data = AudioTagWriter.read(file);
+                data.title = title == null ? data.title : title;
+                data.artist = artist == null ? data.artist : artist;
+                data.album = album == null ? data.album : album;
+                data.lyrics = lyrics == null ? data.lyrics : lyrics;
+                if (cover != null && cover.length > 0) {
+                    data.cover = cover;
+                    data.coverMime = coverMime == null ? "image/jpeg" : coverMime;
+                }
+                AudioTagWriter.write(file, data);
+            } catch (Throwable ignored) {}
+        }, "MusicMod-CacheTagSync");
+        t.setDaemon(true);
+        t.start();
     }
 }

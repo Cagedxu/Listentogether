@@ -1,7 +1,10 @@
 package com.musicmod.client;
 
+import com.musicmod.api.RomajiSupport;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.math.Axis;
 import com.musicmod.MusicMod;
 import com.musicmod.client.gui.LyricsParser;
@@ -11,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -24,24 +28,24 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 世界内 3D 歌词。
+ * 世界�?3D 歌词�?
  *
  * <p>歌词在世界里有一个真实坐标，始终朝向镜头；渲染时把它投影到屏幕，
- * 在 HUD 阶段绘制。这样既保留距离、缩放和视差，又不会被光影包的
- * 延迟渲染/后处理吞掉，兼容性比直接在世界阶段画文字好得多。</p>
+ * �?HUD 阶段绘制。这样既保留距离、缩放和视差，又不会被光影包�?
+ * 延迟渲染/后处理吞掉，兼容性比直接在世界阶段画文字好得多�?/p>
  *
- * <p>效果参考 DangoMusic（GPL-3.0）的 LyricsModule。本项目以 GPL-3.0
- * 分发，详见 LICENSE 与 README。</p>
+ * <p>效果参�?DangoMusic（GPL-3.0）的 LyricsModule。本项目�?GPL-3.0
+ * 分发，详�?LICENSE �?README�?/p>
  */
 @Mod.EventBusSubscriber(modid = MusicMod.MOD_ID, value = Dist.CLIENT)
 public final class WorldLyricsRenderer {
 
-    /** 歌词距离（格） */
+    /** 歌词距离（格�?*/
     private static final double DISTANCE = 10.0D;
     /** 左右随机散布角度 */
     private static final float SPREAD = 30.0F;
     /** 文字大小基准 */
-    private static final float BASE_SCALE = 0.032F;
+    private static final float BASE_SCALE = 0.045F;
     /** 歌词行高（字体像素） */
     private static final float LINE_HEIGHT = 11.0F;
     /** 原文换行宽度（字体像素） */
@@ -50,17 +54,17 @@ public final class WorldLyricsRenderer {
     private static final int TRANSLATION_WRAP = 270;
     /** 翻译缩放 */
     private static final float TRANSLATION_SCALE = 0.72F;
-    /** 旧句淡出时长（秒） */
-    private static final float FADE_SECONDS = 0.4F;
-    /** 手绘抖动的帧率 */
+    /** 旧句淡出时长（秒�?*/
+    private static final float FADE_SECONDS = 0.18F;
+    /** 手绘抖动的帧�?*/
     private static final int WIGGLE_FPS = 8;
-    /** 屏幕边缘留白（GUI 像素） */
+    /** 屏幕边缘留白（GUI 像素�?*/
     private static final double EDGE_MARGIN_X = 10.0D;
     private static final double EDGE_MARGIN_TOP = 8.0D;
     private static final double EDGE_MARGIN_BOTTOM = 34.0D;
     /** 原文颜色：DangoMusic 默认暖白 0xF7E1D7 */
     private static final int TEXT_RGB = 0xFFF7E1D7;
-    /** 翻译颜色：低饱和的暖粉 */
+    /** 翻译颜色：低饱和的暖�?*/
     private static final int TRANSLATION_RGB = 0xFFE5B4C2;
     /** 光晕颜色：与原文同色扩散，不额外染橙 */
     private static final int GLOW_RGB = 0xFFF7E1D7;
@@ -69,7 +73,9 @@ public final class WorldLyricsRenderer {
 
     private static final class Floating {
         final List<String> lines;
-        final List<String> translation;
+        List<String> translation;
+        final String sourceText;
+        final String sourceTranslation;
         final long startMs;
         final long revealMs;
         final long[] charTimes;
@@ -81,10 +87,13 @@ public final class WorldLyricsRenderer {
         double screenX, screenY;
         boolean hasScreen;
 
-        Floating(List<String> lines, List<String> translation, long startMs, long revealMs,
-                 long[] charTimes, double x, double y, double z, float yaw, float pitch) {
+        Floating(List<String> lines, List<String> translation, String sourceText, String sourceTranslation,
+                 long startMs, long revealMs, long[] charTimes, double x, double y, double z,
+                 float yaw, float pitch) {
             this.lines = lines;
             this.translation = translation;
+            this.sourceText = sourceText;
+            this.sourceTranslation = sourceTranslation;
             this.startMs = startMs;
             this.revealMs = revealMs;
             this.charTimes = charTimes;
@@ -96,7 +105,7 @@ public final class WorldLyricsRenderer {
         }
     }
 
-    /** 投影结果；behind 表示歌词在镜头背面。 */
+    /** 投影结果；behind 表示歌词在镜头背面�?*/
     private static final class Projection {
         double x, y;
         double cx, cz;
@@ -111,10 +120,11 @@ public final class WorldLyricsRenderer {
     private static int lastIndex = -1;
     private static long lastPositionMs = -1L;
     private static boolean wasPaused;
+    private static MusicModConfig.LyricsDisplay lastDisplayMode = null;
 
     private WorldLyricsRenderer() {}
 
-    /** 断开连接 / 切换世界时清空，避免旧歌词残留在新世界。 */
+    /** 断开连接 / 切换世界时清空，避免旧歌词残留在新世界�?*/
     public static void reset() {
         currentSong = "";
         currentLyrics = null;
@@ -136,7 +146,7 @@ public final class WorldLyricsRenderer {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || mc.options.hideGui || mc.screen != null) {
+        if (mc.player == null || mc.level == null || mc.options.hideGui) {
             return;
         }
 
@@ -165,6 +175,12 @@ public final class WorldLyricsRenderer {
             lastIndex = -1;
             lastPositionMs = -1L;
         }
+        MusicModConfig.LyricsDisplay displayMode = MusicModConfig.getLyricsDisplay();
+        if (displayMode != lastDisplayMode) {
+            lastDisplayMode = displayMode;
+            refreshSecondary(active);
+        }
+
         if (parsed.isEmpty() || !LyricsParser.isTimed(parsed)) {
             fadeActive();
             return;
@@ -206,8 +222,8 @@ public final class WorldLyricsRenderer {
         if (active == null && fading.isEmpty()) return;
 
         GuiGraphics gg = event.getGuiGraphics();
-        // 光影包/其他 HUD 可能在 Post 阶段留下非白色的 shader color，
-        // 那会把整段文字（包括发光和描边）一起乘成黑色。
+        // 光影�?其他 HUD 可能�?Post 阶段留下非白色的 shader color�?
+        // 那会把整段文字（包括发光和描边）一起乘成黑色�?
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -224,15 +240,51 @@ public final class WorldLyricsRenderer {
 
         gg.pose().pushPose();
         long songNow = pos;
+        pruneFading(now);
+        if (active == null && fading.isEmpty()) {
+            gg.pose().popPose();
+            return;
+        }
+
+        // 光晕改为在字形层用少量放大副本绘制，避免离屏 FBO 破坏 HUD/光影状态。
+        drawAll(gg, camera, cam, now, songNow, guiW, guiH, tanH, tanV);
+        gg.pose().popPose();
+        gg.flush();
+    }
+
+    /** 只在光晕画布上画字的轮廓，不画阴影和任何多层副本。*/
+    private static boolean maskPass;
+    private static boolean fadingPass;
+    private static MultiBufferSource.BufferSource maskBuffer;
+
+    private static MultiBufferSource.BufferSource maskBuffer() {
+        if (maskBuffer == null) {
+            // Must not use Tesselator.getInstance(): GuiGraphics owns that builder,
+            // and flushing it while the mask is bound would flush the whole HUD into the mask.
+            maskBuffer = MultiBufferSource.immediate(new BufferBuilder(1536));
+        }
+        return maskBuffer;
+    }
+
+    private static void pruneFading(long now) {
+        for (int i = fading.size() - 1; i >= 0; i--) {
+            Floating f = fading.get(i);
+            if ((now - f.fadeStartNs) / 1_000_000_000.0F >= FADE_SECONDS) {
+                fading.remove(i);
+            }
+        }
+    }
+
+    private static void drawAll(GuiGraphics gg, Camera camera, Vec3 cam, long now, long songNow,
+                                int guiW, int guiH, double tanH, double tanV) {
         for (int i = fading.size() - 1; i >= 0; i--) {
             Floating f = fading.get(i);
             float t = (now - f.fadeStartNs) / 1_000_000_000.0F;
-            if (t >= FADE_SECONDS) {
-                fading.remove(i);
-                continue;
-            }
-            drawFloating(gg, f, camera, cam, 1.0F - t / FADE_SECONDS, t * 0.4F, songNow,
+            if (t >= FADE_SECONDS) continue;
+            fadingPass = true;
+            drawFloating(gg, f, camera, cam, 1.0F - t / FADE_SECONDS, 0.0F, songNow,
                     guiW, guiH, tanH, tanV, true);
+            fadingPass = false;
         }
         if (active != null) {
             float appear = active.resumedAtNs == 0L ? 1.0F
@@ -240,8 +292,6 @@ public final class WorldLyricsRenderer {
             drawFloating(gg, active, camera, cam, appear, 0.0F, songNow,
                     guiW, guiH, tanH, tanV, false);
         }
-        gg.pose().popPose();
-        gg.flush();
     }
 
     private static void fadeActive() {
@@ -253,6 +303,12 @@ public final class WorldLyricsRenderer {
         }
     }
 
+    private static void refreshSecondary(Floating f) {
+        if (f == null) return;
+        String secondary = LyricsDisplayHelper.secondary(f.sourceText, f.sourceTranslation);
+        f.translation = secondary == null ? List.of() : wrap(secondary, TRANSLATION_WRAP);
+    }
+
     private static Floating spawn(LyricsParser.Line line, long nextMs, float partial) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return null;
@@ -261,9 +317,9 @@ public final class WorldLyricsRenderer {
         if (lines.isEmpty()) return null;
 
         List<String> translation = List.of();
-        if (MusicModConfig.getShowTranslation()
-                && line.translation != null && !line.translation.isEmpty()) {
-            translation = wrap(line.translation, TRANSLATION_WRAP);
+        String secondary = LyricsDisplayHelper.secondary(line.text, line.translation);
+        if (secondary != null) {
+            translation = wrap(secondary, TRANSLATION_WRAP);
         }
 
         int chars = 0;
@@ -284,7 +340,8 @@ public final class WorldLyricsRenderer {
         double dz = Math.cos(yr) * Math.cos(pr);
 
         Vec3 eye = mc.player.getEyePosition(partial);
-        return new Floating(lines, translation, line.timeMs, reveal, charTimes,
+        return new Floating(lines, translation, line.text, line.translation,
+                line.timeMs, reveal, charTimes,
                 eye.x + dx * DISTANCE, eye.y + dy * DISTANCE, eye.z + dz * DISTANCE,
                 yaw, pitch);
     }
@@ -304,7 +361,7 @@ public final class WorldLyricsRenderer {
         double fz = Math.cos(yaw) * Math.cos(pitch);
         double rxAxis = -Math.cos(yaw);
         double rzAxis = -Math.sin(yaw);
-        // up = right x forward，跟着俯仰角一起转，抬头/低头时投影才不会偏
+        // up = right x forward，跟着俯仰角一起转，抬�?低头时投影才不会�?
         double ux = -Math.sin(yaw) * Math.sin(pitch);
         double uy = Math.cos(pitch);
         double uz = Math.cos(yaw) * Math.sin(pitch);
@@ -356,8 +413,8 @@ public final class WorldLyricsRenderer {
         Projection p = project(f, camera, cam, guiW, guiH, tanH, tanV);
         boolean follow = f == active && MusicModConfig.isWorldLyricsFollowEnabled();
         double scale = guiScale(p.behind ? DISTANCE : p.cz, tanV, guiH);
-        // 跟随开启时按固定 10 格距离取屏幕字号；否则走远后 cz 变大，
-        // 字会越来越小，看起来像被强制缩小。
+        // 跟随开启时固定�?10 格距离取屏幕字号；走近不再额外放大，
+        // 否则字会大得离谱，光晕也会被一起撑糊�?
         if (follow) {
             scale = guiScale(DISTANCE, tanV, guiH);
         }
@@ -369,7 +426,7 @@ public final class WorldLyricsRenderer {
         double targetY;
         if (follow) {
             // 跟随只做“别跑出屏幕”：还在屏幕里就用真实投影位置；
-            // 快出屏时停在当前屏幕位置，不往左/右边缘中心拽，也不强制缩放。
+            // 快出屏时停在当前屏幕位置，不往�?右边缘中心拽，也不强制缩放�?
             double minX = EDGE_MARGIN_X + hw;
             double maxX = guiW - EDGE_MARGIN_X - hw;
             double minY = EDGE_MARGIN_TOP + topH;
@@ -403,14 +460,15 @@ public final class WorldLyricsRenderer {
         }
 
         gg.pose().pushPose();
-        gg.pose().translate(f.screenX, f.screenY - lift * 8.0D, 0.0D);
+        // 对齐到整数屏幕像素，避免 5 倍放大后字边被线性过滤糊�?
+        gg.pose().translate(Math.round(f.screenX), Math.round(f.screenY - lift * 8.0D), 0.0D);
         gg.pose().scale((float) scale, (float) scale, 1.0F);
 
         long elapsed = songNow - f.startMs;
-        // 消失中的旧句只做干净的整句淡出：不再抖动，也不再画多层发光副本。
-        // 抖动 + 28 层偏移光晕在 alpha 降低时会散成一团，看起来像“炸开”。
-        boolean decorate = !fadingOut;
-        drawAnimated(gg, f.lines, elapsed, f.revealMs, alphaMul, f.charTimes, 0.0F, decorate);
+        // 消失中的旧句只做干净的整句淡出：不再抖动，也不再画多层发光副本�?
+        // 抖动 + 28 层偏移光晕在 alpha 降低时会散成一团，看起来像“炸开”�?
+        boolean decorate = true;
+        drawAnimated(gg, f.lines, elapsed, f.revealMs, alphaMul, f.charTimes, 0.0F, decorate, true, true, true);
         if (!f.translation.isEmpty()) {
             drawTranslation(gg, f.translation, elapsed, f.revealMs, alphaMul,
                     f.lines.size() * LINE_HEIGHT / 2.0F + 2.5F, decorate);
@@ -420,7 +478,8 @@ public final class WorldLyricsRenderer {
 
     private static void drawAnimated(GuiGraphics gg, List<String> lines, long elapsed, long revealMs,
                                      float alphaMul, long[] charTimes, float yOffset,
-                                     boolean decorate) {
+                                     boolean decorate, boolean perCharReveal,
+                                     boolean allowPop, boolean drawShadow) {
         Font font = Minecraft.getInstance().font;
         boolean wordPop = charTimes != null && charTimes.length > 0;
         int total = Math.max(1, lines.stream().mapToInt(String::length).sum());
@@ -443,14 +502,14 @@ public final class WorldLyricsRenderer {
                         int ci = Math.min(nonSpace, charTimes.length - 1);
                         long at = charTimes[ci];
                         float t = (elapsed - at) / 160.0F;
-                        if (t >= 0.0F) {
-                            alpha = Math.min(1.0F, t * 3.0F) * alphaMul;
-                            // 逐字轻微放大；放大期间关闭抖动和发光副本，
-                            // 否则放大后的字会被多层偏移副本包成一团。
-                            float back = Math.max(0.0F, 1.0F - t);
-                            pop = 1.0F + 0.22F * back * back;
-                        } else {
+                        if (perCharReveal && t < 0.0F) {
                             alpha = 0.0F;
+                        } else {
+                            alpha = perCharReveal ? Math.min(1.0F, t * 3.0F) * alphaMul : alphaMul;
+                            if (allowPop) {
+                                float back = Math.max(0.0F, 1.0F - t);
+                                pop = 1.0F + 0.22F * back * back;
+                            }
                         }
                     } else {
                         float appearAt = (float) charIndex / total * revealMs;
@@ -461,7 +520,7 @@ public final class WorldLyricsRenderer {
                     }
                     if (alpha > 0.02F) {
                         drawGlyph(gg, font, String.valueOf(c), x, y + lift,
-                                TEXT_RGB, alpha, nonSpace, frame, pop, decorate);
+                                TEXT_RGB, alpha, nonSpace, frame, pop, decorate, drawShadow);
                     }
                     nonSpace++;
                 }
@@ -475,37 +534,24 @@ public final class WorldLyricsRenderer {
     private static void drawTranslation(GuiGraphics gg, List<String> lines, long elapsed,
                                         long revealMs, float alphaMul, float top,
                                         boolean decorate) {
-        Font font = Minecraft.getInstance().font;
         float a = Math.max(0.0F, Math.min(1.0F, (elapsed - 120L) / 260.0F));
         a = a * a * (3.0F - 2.0F * a);
-        float alpha = a * alphaMul * 0.9F;
+        float alpha = a * alphaMul;
         if (alpha <= 0.02F) return;
 
+        // 翻译不用逐字揭示，但保留和原文一样的词块弹出、轻微抖动、发光与阴影。
+        // revealMs=0 + charTimes=null 会让 drawAnimated 一次性显示整行。
         gg.pose().pushPose();
         gg.pose().translate(0.0F, top, 0.0F);
         gg.pose().scale(TRANSLATION_SCALE, TRANSLATION_SCALE, 1.0F);
-        float y = 0.0F;
-        for (String line : lines) {
-            float lineW = font.width(line);
-            float x = -lineW / 2.0F;
-            for (int i = 0; i < line.length(); i++) {
-                char c = line.charAt(i);
-                float cw = font.width(String.valueOf(c));
-                if (c != ' ') {
-                    drawGlyph(gg, font, String.valueOf(c), x, y,
-                            TRANSLATION_RGB, alpha, 2000 + i, 0L, 1.0F, false);
-                }
-                x += cw;
-            }
-            y += LINE_HEIGHT;
-        }
+        drawAnimated(gg, lines, elapsed, revealMs, alpha, null, 0.0F, decorate, true, false, true);
         gg.pose().popPose();
     }
 
     private static void drawGlyph(GuiGraphics gg, Font font, String glyph, float x, float y,
                                   int rgb, float alpha, int index, long frame, float pop,
-                                  boolean decorate) {
-        // 手绘抖动：同一帧内每个字有固定的小旋转/位移/缩放
+                                  boolean decorate, boolean drawShadow) {
+        // 手绘抖动：恢复原版的逐字旋转/位移/缩放
         float rot = 0.0F;
         float dx = 0.0F;
         float dy = 0.0F;
@@ -533,71 +579,45 @@ public final class WorldLyricsRenderer {
             return;
         }
 
-        // 1) 外发光：从很淡的大范围光晕，到贴着字边的暖光。
-        //    淡出中的句子不再画这些偏移副本，否则低透明度下会散成一片。
-        if (decorate && !popping) {
-            // 1a) 宽光晕：把同一个字按比例放大后以低透明度垫在下面，
-            //     比单纯偏移副本更接近原模组的柔和扩散，也不容易看出重影。
-            for (int hi = 0; hi < 2; hi++) {
-                float hs = hi == 0 ? 1.28F : 1.62F;
-                int ha = (int) (alpha * 255.0F * (hi == 0 ? 0.13F : 0.07F));
-                if (ha >= 3) {
-                    gg.pose().pushPose();
-                    gg.pose().translate(cx, cy, 0.0F);
-                    gg.pose().scale(hs, hs, 1.0F);
-                    gg.pose().translate(-cx, -cy, 0.0F);
-                    int color = (ha << 24) | (GLOW_RGB & 0xFFFFFF);
-                    gg.drawString(font, glyph, (int) x, (int) y, color, false);
-                    gg.pose().popPose();
-                }
-            }
-            // 1b) 贴着字边的三层暖光，补上放大量无法覆盖的近距光。
-            int glowBloom = (int) (alpha * 255.0F * 0.045F);
-            if (glowBloom >= 3) {
-                int color = (glowBloom << 24) | (GLOW_RGB & 0xFFFFFF);
-                for (int i = 0; i < 8; i++) {
-                    double ang = Math.PI * 2.0D * i / 8.0D;
-                    float ox = (float) Math.cos(ang) * 4.2F;
-                    float oy = (float) Math.sin(ang) * 4.2F;
-                    gg.drawString(font, glyph, (int) (x + ox), (int) (y + oy), color, false);
-                }
-            }
-            int glowOuter = (int) (alpha * 255.0F * 0.11F);
-            if (glowOuter >= 4) {
-                int color = (glowOuter << 24) | (GLOW_RGB & 0xFFFFFF);
-                for (int i = 0; i < 12; i++) {
-                    double ang = Math.PI * 2.0D * i / 12.0D;
-                    float ox = (float) Math.cos(ang) * 2.4F;
-                    float oy = (float) Math.sin(ang) * 2.4F;
-                    gg.drawString(font, glyph, (int) (x + ox), (int) (y + oy), color, false);
-                }
-            }
-            int glowInner = (int) (alpha * 255.0F * 0.18F);
-            if (glowInner >= 4) {
-                int color = (glowInner << 24) | (GLOW_RGB & 0xFFFFFF);
-                for (int i = 0; i < 8; i++) {
-                    double ang = Math.PI * 2.0D * i / 8.0D;
-                    float ox = (float) Math.cos(ang) * 1.2F;
-                    float oy = (float) Math.sin(ang) * 1.2F;
-                    gg.drawString(font, glyph, (int) (x + ox), (int) (y + oy), color, false);
-                }
+        int color = (coreA << 24) | (rgb & 0xFFFFFF);
+        if (maskPass) {
+            // 光晕画布只画字的轮廓，不画阴影；使用独立的 BufferSource，避免刷走 HUD。
+            font.drawInBatch(glyph, x, y, color, false, matrix, maskBuffer(),
+                    Font.DisplayMode.NORMAL, LightTexture.FULL_BRIGHT, 0);
+            gg.pose().popPose();
+            return;
+        }
+
+        if (drawShadow) {
+            int shadowColor = ((color & 0xFCFCFC) >> 2) | (color & 0xFF000000);
+            float shadowOff = glyph.codePointAt(0) < 0x2E80 ? 1.0F : 0.5F;
+            gg.drawString(font, glyph, (int) (x + shadowOff), (int) (y + shadowOff), shadowColor, false);
+            gg.flush();
+        }
+
+        // 回退到两版本前的柔光：两层放大副本；消散时不再画光晕，只做原地溶解。
+        if (decorate && !fadingPass) {
+            for (int i = 0; i < 2; i++) {
+                float gs = i == 0 ? 1.16F : 1.34F;
+                int ga = (int) (alpha * (i == 0 ? 32.0F : 18.0F));
+                if (ga < 3) continue;
+                gg.pose().pushPose();
+                gg.pose().translate(cx, cy, 0.0F);
+                gg.pose().scale(gs, gs, 1.0F);
+                gg.pose().translate(-cx, -cy, 0.0F);
+                int glowColor = (ga << 24) | (rgb & 0xFFFFFF);
+                font.drawInBatch(glyph, x, y, glowColor, false, gg.pose().last().pose(),
+                        gg.bufferSource(), Font.DisplayMode.NORMAL, LightTexture.FULL_BRIGHT, 0);
+                gg.pose().popPose();
             }
             gg.flush();
         }
 
-        // 2) 先单独画阴影并 flush，再画清晰的字。
-        //    原版会把阴影和字放进同一批，半透明按深度重排后阴影可能盖到字上，
-        //    整句就会发黑；DangoMusic 也是把阴影单独先画一批。
-        int color = (coreA << 24) | (rgb & 0xFFFFFF);
-        int shadowColor = ((color & 0xFCFCFC) >> 2) | (color & 0xFF000000);
-        float shadowOff = glyph.codePointAt(0) < 0x2E80 ? 1.0F : 0.5F;
-        gg.drawString(font, glyph, (int) (x + shadowOff), (int) (y + shadowOff), shadowColor, false);
-        gg.flush();
         gg.drawString(font, glyph, (int) x, (int) y, color, false);
         gg.pose().popPose();
     }
 
-    /** 每个非空白字符的出场时间：按词分组，词内字符共用时间，近似逐字歌词。 */
+    /** 每个非空白字符的出场时间：按词分组，词内字符共用时间，近似逐字歌词�?*/
     private static long[] buildCharTimes(String text, long lineDur) {
         List<int[]> wordRanges = new ArrayList<>();
         List<String> words = new ArrayList<>();
@@ -653,7 +673,7 @@ public final class WorldLyricsRenderer {
         return (h & 0xFFFF) / 32767.5F - 1.0F;
     }
 
-    /** 按像素宽度换行：英文优先在空格处断，中日韩可以任意字之间断。 */
+    /** 按像素宽度换行：英文优先在空格处断，中日韩可以任意字之间断�?*/
     private static List<String> wrap(String text, int maxWidth) {
         List<String> out = new ArrayList<>();
         if (text == null || text.isEmpty()) return out;

@@ -61,8 +61,12 @@ public class MusicServerManager {
     // 正在传输文件的玩家集合（避免重复传输）
     private final Set<UUID> transferringPlayers = ConcurrentHashMap.newKeySet();
 
-    // 文件传输限流：每个玩家同时只传输一个文件
-    private final Map<UUID, String> playerTransferringSong = new ConcurrentHashMap<>();
+    // 文件传输限流：每个玩家同时只传输一个文件；新请求会取消旧传输
+    private final Map<UUID, TransferSession> playerTransferringSong = new ConcurrentHashMap<>();
+
+    private static final class TransferSession {
+        volatile boolean cancelled;
+    }
 
     // 上传会话管理（玩家UUID -> 上传会话）
     private final Map<UUID, UploadSession> uploadSessions = new ConcurrentHashMap<>();
@@ -259,6 +263,32 @@ public class MusicServerManager {
 
         NetworkHandler.sendToAllPlayers(new S2CStopPacket());
         broadcastMessage(Lang.tr("§6♪ §7播放已停止"));
+    }
+
+    /** 删除服务器歌曲文件，并清理队列/歌单引用。 */
+    public boolean deleteSong(String songName) {
+        if (musicLibrary == null || songName == null || songName.isBlank()) return false;
+        File file = musicLibrary.getSongFile(songName);
+        if (file == null || !file.isFile()) return false;
+        boolean wasCurrent = songName.equals(currentSong);
+        if (wasCurrent) stopMusic();
+        if (!file.delete()) return false;
+        playQueue.removeIf(songName::equals);
+        baseQueue.removeIf(songName::equals);
+        if (playlistLibrary != null) {
+            for (var playlist : playlistLibrary.getAll()) {
+                playlistLibrary.removeSong(playlist.getId(), songName);
+            }
+            broadcastPlaylists();
+        }
+        musicLibrary.scan();
+        if (server != null) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                sendSongListToPlayer(player);
+            }
+        }
+        broadcastMessage(Lang.tr("§6♪ §c已删除歌曲: §f") + songName);
+        return true;
     }
 
     /**
@@ -842,12 +872,11 @@ public class MusicServerManager {
         }
 
         UUID playerId = player.getUUID();
-        // 防止重复请求
-        String currentTransfer = playerTransferringSong.get(playerId);
-        if (currentTransfer != null && currentTransfer.equalsIgnoreCase(songName)) {
-            return; // 正在传输同一首歌
-        }
-        playerTransferringSong.put(playerId, songName);
+        // 新请求优先：取消该玩家仍在进行的旧传输，避免切歌后旧线程继续发数据，
+        // 或切回同一首歌时被“正在传输同一首”直接拒绝，客户端永久卡住。
+        TransferSession old = playerTransferringSong.put(playerId, new TransferSession());
+        if (old != null) old.cancelled = true;
+        TransferSession session = playerTransferringSong.get(playerId);
 
         // 在异步线程中传输文件，避免阻塞主线程
         String displayName = getSongDisplayName(songFile);
@@ -857,11 +886,11 @@ public class MusicServerManager {
 
         Thread transferThread = new Thread(() -> {
             try {
-                sendFileInChunks(player, displayName, fileName, md5, fileToSend, offsetMs);
+                sendFileInChunks(player, displayName, fileName, md5, fileToSend, offsetMs, session);
             } catch (Exception e) {
                 MusicMod.LOGGER.error("Failed to send song data to player {}", player.getName().getString(), e);
             } finally {
-                playerTransferringSong.remove(playerId);
+                playerTransferringSong.remove(playerId, session);
             }
         }, "MusicMod-Transfer-" + player.getName().getString());
         transferThread.setDaemon(true);
@@ -872,7 +901,8 @@ public class MusicServerManager {
      * 分块发送文件数据
      */
     private void sendFileInChunks(ServerPlayer player, String songName, String fileName,
-                                  String md5, File file, long offsetMs) throws IOException {
+                                  String md5, File file, long offsetMs,
+                                  TransferSession session) throws IOException {
         long fileLength = file.length();
         int totalChunks = (int) Math.ceil((double) fileLength / S2CSongDataPacket.MAX_CHUNK_SIZE);
 
@@ -883,6 +913,7 @@ public class MusicServerManager {
             long transferStart = System.nanoTime();
             long sentBytes = 0;
             while ((bytesRead = is.read(buffer)) != -1) {
+                if (session.cancelled) break;
                 byte[] chunkData;
                 if (bytesRead == buffer.length) {
                     chunkData = buffer;
@@ -952,7 +983,8 @@ public class MusicServerManager {
     public void onPlayerLeft(ServerPlayer player) {
         UUID playerId = player.getUUID();
         transferringPlayers.remove(playerId);
-        playerTransferringSong.remove(playerId);
+        TransferSession transfer = playerTransferringSong.remove(playerId);
+        if (transfer != null) transfer.cancelled = true;
         cleanupUploadSession(playerId);
 
         // 服务器已无人时的音乐行为（0.25.1 修复：PlayerLoggedOutEvent 触发时离开的玩家仍在列表中，

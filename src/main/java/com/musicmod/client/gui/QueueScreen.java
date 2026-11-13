@@ -132,7 +132,7 @@ public class QueueScreen extends Screen {
                     g.fill(x + 2, rowY, x + w - 8, rowY + ROW_H - 1, Theme.nowPlayingBg());
                 }
                 if (idx == selectedIndex) {
-                    int accent = Theme.c(0xFFFF55);
+                    int accent = Theme.selection();
                     g.fill(x + 2, rowY, x + w - 8, rowY + 1, accent);
                     g.fill(x + 2, rowY + ROW_H - 2, x + w - 8, rowY + ROW_H - 1, accent);
                     g.fill(x + 2, rowY, x + 3, rowY + ROW_H - 1, accent);

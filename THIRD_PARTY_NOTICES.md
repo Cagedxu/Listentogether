@@ -40,3 +40,7 @@ Forge Jar-in-Jar 下的 split-package 冲突），如果你需要修改或替换
 
 Minecraft 是 Mojang Studios 的商标。本项目是非官方模组，与 Mojang 或 Forge
 没有隶属或背书关系。
+
+## 字体
+
+- **Noto Sans SC**（`assets/musicmod/font/noto_sans_sc.ttf`）：SIL Open Font License 1.1，版权归 Noto Project Authors 所有。完整文本见 `LICENSES/NotoSansSC-OFL.txt`。

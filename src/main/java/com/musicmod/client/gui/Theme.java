@@ -53,6 +53,16 @@ public final class Theme {
         return isLight() ? 0x33C97B4A : 0x50226633;
     }
 
+    /** 列表/歌词选中框：浅色暖陶土，暗色与进度条一致的绿色。 */
+    public static int selection() {
+        return isLight() ? 0xFFB4551E : 0xFF55FF55;
+    }
+
+    /** 选中行底色：浅色暖陶土淡底，暗色进度条绿淡底。 */
+    public static int selectionBg() {
+        return isLight() ? 0x33B4551E : 0x3355FF55;
+    }
+
     /** 将深色 UI 颜色转换成当前主题颜色。 */
     public static int c(int dark) {
         boolean noAlpha = (dark & 0xFF000000) == 0;

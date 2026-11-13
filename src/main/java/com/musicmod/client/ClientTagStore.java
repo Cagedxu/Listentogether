@@ -39,6 +39,8 @@ public class ClientTagStore {
         public String album = "";
         public long durationMs = -1;
         public String lyrics = "";
+        public byte[] coverJpeg = new byte[0];
+        public String coverMime = "";
         public volatile boolean coverReady = false; // 封面纹理是否已就绪
     }
 
@@ -81,6 +83,8 @@ public class ClientTagStore {
         info.album = album;
         info.durationMs = durationMs;
         info.lyrics = lyrics;
+        info.coverJpeg = coverJpeg == null ? new byte[0] : coverJpeg;
+        info.coverMime = info.coverJpeg.length > 0 ? "image/jpeg" : "";
         // 回补当前播放歌曲的回退时长（同 onTagsReceived，详情包可能先到）
         if (durationMs > 0 && songName.equals(ClientMusicManager.getInstance().getCurrentSong())) {
             ClientMusicManager.getInstance().getAudioEngine().setFallbackDurationMs(durationMs);

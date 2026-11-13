@@ -6,9 +6,11 @@ import com.musicmod.client.ClientFavorites;
 import com.musicmod.client.ClientMusicManager;
 import com.musicmod.client.ClientPlaylists;
 import com.musicmod.client.ClientTagStore;
+import com.musicmod.client.LyricsDisplayHelper;
 import com.musicmod.client.CoverTextureManager;
 import com.musicmod.config.MusicModConfig;
 import com.musicmod.network.NetworkHandler;
+import com.musicmod.network.packet.C2SDeleteSongPacket;
 import com.musicmod.network.packet.C2SMusicActionPacket;
 import com.musicmod.network.packet.C2SPlaylistActionPacket;
 import com.musicmod.network.packet.C2SRequestListPacket;
@@ -178,9 +180,13 @@ public class MusicAppScreen extends Screen {
     /** 歌曲列表底部「添加到歌单」点击区域（render 时更新，mouseClicked 时判定） */
     private int addSongHintX = -1;
     private int addSongHintW = 0;
+    private int deleteSongHintX = -1;
+    private int deleteSongHintW = 0;
     /** 详情面板「添加到歌单」点击区域 */
     private int detailAddSongX = -1;
     private int detailAddSongW = 0;
+    private int detailEditX = -1;
+    private int detailEditW = 0;
     /** 歌单详情页工具栏点击区域 */
     private int playlistPlayX = -1;
     private int playlistPlayW = 0;
@@ -207,7 +213,12 @@ public class MusicAppScreen extends Screen {
 
     private boolean isOp() {
         Minecraft mc = Minecraft.getInstance();
-        return mc.player != null && mc.player.hasPermissions(2);
+        return mc.player != null && (mc.player.hasPermissions(2) || mc.hasSingleplayerServer());
+    }
+
+    /** 单人存档房主即使未开作弊也允许编辑源文件；多人仅 OP。 */
+    private boolean canEditTags() {
+        return isOp() || Minecraft.getInstance().hasSingleplayerServer();
     }
 
     private int playerBarY() {
@@ -412,9 +423,7 @@ public class MusicAppScreen extends Screen {
         this.addRenderableWidget(hudPosBtn);
 
         translationBtn = Button.builder(translationBtnText(), btn -> {
-            boolean v = !MusicModConfig.getShowTranslation();
-            MusicModConfig.setShowTranslation(v);
-            MusicModConfig.saveClientConfig();
+            com.musicmod.client.LyricsDisplayHelper.cycle();
             btn.setMessage(translationBtnText());
         }).bounds(btnX, LIST_TOP + 108, btnW, 20).build();
         this.addRenderableWidget(translationBtn);
@@ -543,6 +552,7 @@ public class MusicAppScreen extends Screen {
             btn.setMessage(worldLyricsFollowBtnText());
         }).bounds(btnX, LIST_TOP + 556, btnW, 20).build();
         this.addRenderableWidget(worldLyricsFollowBtn);
+
 
         if (singleplayer) {
             songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 438, sw, 20,
@@ -684,6 +694,49 @@ public class MusicAppScreen extends Screen {
         lyricsDragMoved = false;
         selectedLyricLine = -1;
         lastLyricClickTime = 0;
+    }
+
+    /** OP 在详情页编辑源文件标签（单人直接写盘，多人发服务端包）。 */
+    private void openDetailTagEditor() {
+        if (!canEditTags() || detailSong == null) return;
+        Minecraft mc = Minecraft.getInstance();
+        boolean singleplayer = mc.hasSingleplayerServer();
+        File file = null;
+        com.musicmod.audio.SongTags tags;
+        if (singleplayer) {
+            file = com.musicmod.server.MusicServerManager.getInstance().getMusicLibrary().getSongFile(detailSong);
+            if (file == null || !file.isFile()) {
+                if (mc.player != null) mc.player.displayClientMessage(
+                        Component.literal(Lang.tr("§c[一起听] 找不到歌曲文件")), false);
+                return;
+            }
+            tags = com.musicmod.audio.TagReader.read(file);
+        } else {
+            ClientTagStore.SongInfo info = ClientTagStore.getInstance().getSongInfo(detailSong);
+            tags = new com.musicmod.audio.SongTags(detailSong);
+            if (info != null) {
+                tags.title = info.title;
+                tags.artist = info.artist;
+                tags.album = info.album;
+                tags.lyrics = info.lyrics;
+                tags.coverImage = info.coverJpeg;
+                tags.coverMime = info.coverMime;
+            }
+        }
+        com.musicmod.client.tags.TagEditData initial = new com.musicmod.client.tags.TagEditData(
+                tags.title, tags.artist, tags.album, tags.lyrics, tags.coverImage, tags.coverMime, "");
+        final String song = detailSong;
+        mc.setScreen(new com.musicmod.client.tags.TagEditorScreen(file, initial, data -> {
+            if (singleplayer) {
+                com.musicmod.server.MusicServerManager.getInstance().getMusicLibrary().scan();
+                ClientTagStore.getInstance().clear();
+                ClientTagStore.getInstance().requestSongInfo(song);
+            } else {
+                NetworkHandler.sendToServer(new com.musicmod.network.packet.C2STagEditPacket(song, data));
+            }
+            if (mc.player != null) mc.player.displayClientMessage(
+                    Component.literal(Lang.tr("§a[一起听] 标签已保存")), false);
+        }));
     }
 
     private Button addBtn(String text, int x, int y, int w, Runnable action) {
@@ -905,6 +958,10 @@ public class MusicAppScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if (selectedSong == null || nav != Nav.ALL || detailSong != null) {
+            deleteSongHintX = -1;
+            deleteSongHintW = 0;
+        }
         // 窗口外遮罩 + 标题栏/边框（真实屏幕坐标）
         renderWindowChrome(g, mouseX, mouseY);
 
@@ -1132,8 +1189,8 @@ public class MusicAppScreen extends Screen {
             boolean isSel = song.equals(selectedSong);
             boolean isCur = song.equals(currentSong);
             if (isSel) {
-                g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.c(0x80555577));
-                int accent = Theme.c(0xFFD700);
+                g.fill(x, rowY, x + w - 7, rowY + ROW_H, Theme.selectionBg());
+                int accent = Theme.selection();
                 g.fill(x, rowY, x + w - 7, rowY + 1, accent);
                 g.fill(x, rowY + ROW_H - 1, x + w - 7, rowY + ROW_H, accent);
                 g.fill(x, rowY, x + 1, rowY + ROW_H, accent);
@@ -1168,6 +1225,8 @@ public class MusicAppScreen extends Screen {
         drawScrollbar(g, songs.size(), rows, x, y0, w, h);
         addSongHintX = -1;
         addSongHintW = 0;
+        deleteSongHintX = -1;
+        deleteSongHintW = 0;
         if (selectedSong != null && !selectedSong.isEmpty()) {
             int hintY = playerBarY() - 12;
             String prefix = Theme.tr("§7[ 点击行中 ♥ 收藏 ]  [ 双击播放 ]");
@@ -1179,12 +1238,21 @@ public class MusicAppScreen extends Screen {
                 addSongHintX = cursorX;
                 addSongHintW = font.width(add);
             }
+            if (isOp()) {
+                String del = Theme.tr("§c[删除歌曲]");
+                int delX = x + w - font.width(del);
+                g.drawString(font, del, delX, hintY, Theme.c(0xFF5555), false);
+                deleteSongHintX = delX;
+                deleteSongHintW = font.width(del);
+            }
         }
     }
 
     /** 歌手/专辑分组列表 */
     private void renderGroupList(GuiGraphics g, int mouseX, int mouseY,
                                  Map<String, List<String>> groups, String pageTitle) {
+        deleteSongHintX = -1;
+        deleteSongHintW = 0;
         Font font = this.font;
         int x = listX(), w = listW(), y0 = LIST_TOP, h = listH();
         addSongHintX = -1;
@@ -1428,8 +1496,8 @@ public class MusicAppScreen extends Screen {
             boolean isCurrent = song.equals(currentSong);
             boolean missing = !librarySongs.contains(song);
             if (selected) {
-                g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.c(0x80555577));
-                int accent = Theme.c(0xFFD700);
+                g.fill(x, rowY, x + w - 6, rowY + PLAYLIST_ROW_H - 1, Theme.selectionBg());
+                int accent = Theme.selection();
                 g.fill(x, rowY, x + w - 6, rowY + 1, accent);
                 g.fill(x, rowY + PLAYLIST_ROW_H - 2, x + w - 6, rowY + PLAYLIST_ROW_H - 1, accent);
                 g.fill(x, rowY, x + 1, rowY + PLAYLIST_ROW_H - 1, accent);
@@ -1531,7 +1599,7 @@ public class MusicAppScreen extends Screen {
                 int rowY = listY + i * PLAYLIST_POPUP_ROW_H;
                 boolean hover = mouseX >= px && mouseX <= px + pw
                         && mouseY >= rowY && mouseY < rowY + PLAYLIST_POPUP_ROW_H;
-                if (hover) g.fill(px + 4, rowY, px + pw - 4, rowY + PLAYLIST_POPUP_ROW_H - 1, Theme.c(0x80555577));
+                if (hover) g.fill(px + 4, rowY, px + pw - 4, rowY + PLAYLIST_POPUP_ROW_H - 1, Theme.selectionBg());
                 Playlist playlist = playlists.get(idx);
                 g.drawString(font, (Theme.isLight() ? "§0" : "§f") + truncate(font, Theme.tr(playlist.getName()), pw - 90),
                         px + 12, rowY + 4, Theme.c(0xF0F0F0), false);
@@ -1633,28 +1701,26 @@ public class MusicAppScreen extends Screen {
      *  0.27.0：新增歌词跳转/详情双击播放按钮，后续控件下移 52px
      *  0.29.0：新增 HUD 位置按钮，后续控件下移 26px */
     private Component transferLimitBtnText() {
-        return Component.literal(Theme.tr("§7限速: ")
-                + (MusicModConfig.isTransferLimitEnabled()
-                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+        return Component.literal(MusicModConfig.isTransferLimitEnabled()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
     }
 
     private Component pauseBtnText() {
-        return Component.literal(Theme.tr("§7打开界面暂停: ")
-                + (MusicModConfig.isPauseSingleplayer()
-                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+        return Component.literal(MusicModConfig.isPauseSingleplayer()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
     }
 
     private Component worldLyricsBtnText() {
-        return Component.literal(Theme.tr("§73D 歌词: ")
-                + (MusicModConfig.isWorldLyricsEnabled()
-                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+        return Component.literal(MusicModConfig.isWorldLyricsEnabled()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
     }
 
     private Component worldLyricsFollowBtnText() {
-        return Component.literal(Theme.tr("§73D 歌词跟随: ")
-                + (MusicModConfig.isWorldLyricsFollowEnabled()
-                        ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭")));
+        return Component.literal(MusicModConfig.isWorldLyricsFollowEnabled()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
     }
+
+
 
     private int settingsContentH() {
         if (singleplayer) return 534;
@@ -1672,6 +1738,8 @@ public class MusicAppScreen extends Screen {
 
     /** 设置页（控件随滚动偏移，窗口过矮时显示滚动条） */
     private void renderSettings(GuiGraphics g) {
+        deleteSongHintX = -1;
+        deleteSongHintW = 0;
         Font font = this.font;
         int x = listX(), w = listW();
         addSongHintX = -1;
@@ -1701,7 +1769,7 @@ public class MusicAppScreen extends Screen {
         positionSetting(detailDblClickPlayBtn, 290, show, visibleH);
         positionSetting(queueShowPlayedBtn, 316, show, visibleH);
         positionSetting(themeBtn, 342, show, visibleH);
-        positionSetting(pauseSingleplayerBtn, 368, show, visibleH);
+        positionSetting(pauseSingleplayerBtn, 368, show && singleplayer, visibleH);
         positionSetting(transferLimitBtn, 394, show && !singleplayer, visibleH);
         if (singleplayer) {
             // 单人游戏不需要“传输限速”；歌曲目录放到设置页最下方。
@@ -1733,7 +1801,7 @@ public class MusicAppScreen extends Screen {
             drawSettingLabel(g, font, Theme.tr("§7个人音量"), x, 36);
             drawSettingLabel(g, font, Theme.tr("§7HUD 显示"), x, 62);
             drawSettingLabel(g, font, Theme.tr("§7HUD 位置"), x, 88);
-            drawSettingLabel(g, font, Theme.tr("§7翻译歌词"), x, 114);
+            drawSettingLabel(g, font, Theme.tr("§7歌词显示"), x, 114);
             drawSettingLabel(g, font, Theme.tr("§7音符图标"), x, 140);
             drawSettingLabel(g, font, Theme.tr("§7歌词对齐"), x, 166);
             drawSettingLabel(g, font, Theme.tr("§7HUD 翻译位置"), x, 192);
@@ -1778,7 +1846,7 @@ public class MusicAppScreen extends Screen {
         int y = LIST_TOP + baseY - settingsScroll;
         if (y >= LIST_TOP - 12 && y <= LIST_TOP + listH()) {
             int textY = y + (20 - font.lineHeight) / 2 + 1;
-            g.drawString(font, text, x + 8, textY, Theme.c(0xAAAAAA), false);
+            g.drawString(font, text, x + 8, textY, Theme.c(0xFFFFFF), false);
         }
     }
 
@@ -1901,11 +1969,7 @@ public class MusicAppScreen extends Screen {
         int active = LyricsParser.findActiveLine(lines, pos);
         if (active < 0) return null;
         LyricsParser.Line line = lines.get(active);
-        String trans = null;
-        if (MusicModConfig.getShowTranslation()
-                && line.translation != null && !line.translation.isEmpty()) {
-            trans = line.translation;
-        }
+        String trans = LyricsDisplayHelper.secondary(line.text, line.translation);
         return new String[]{line.text, trans};
     }
     /** 歌曲详情面板（封面 + 标签 + 歌词滚动） */
@@ -1918,13 +1982,14 @@ public class MusicAppScreen extends Screen {
         }
         ClientTagStore.SongInfo info = tags.getSongInfo(detailSong);
         g.drawString(font, Theme.tr("§e详情"), x, 8, Theme.c(0xFFFFFF), false);
-        String closeText = Theme.tr("§c✕ 关闭");
-        int closeX = x + w - font.width(closeText) - 6;
-        int closeY = y0 + 4;
-        g.fill(closeX - 3, closeY - 2, x + w - 2, closeY + 11, Theme.c(0x60333333));
-        g.drawString(font, closeText, closeX, closeY, Theme.c(0xFF5555), false);
         g.fill(x - 1, y0 - 1, x + w + 1, y0 + h + 1, Theme.c(0xFF4A4A60));
         g.fill(x, y0, x + w, y0 + h, Theme.listBg());
+        String editText = Theme.tr("§e[编辑标签]");
+        int editY = y0 + 4;
+        detailEditW = font.width(editText);
+        detailEditX = x + w - 6 - detailEditW;
+        g.drawString(font, editText, detailEditX, editY,
+                canEditTags() ? Theme.c(0xFFD700) : Theme.c(0x888888), false);
         int coverX = x + 10, coverY = y0 + 10, cs = 64;
         ResourceLocation cover = CoverTextureManager.get(detailSong);
         if (cover != null) {
@@ -1971,13 +2036,16 @@ public class MusicAppScreen extends Screen {
         if (lyrics != null && !lyrics.isEmpty()) {
             hasTrans = LyricsParser.hasTranslation(LyricsParser.parse(lyrics));
         }
-        if (hasTrans) {
-            String transBtn = MusicModConfig.getShowTranslation() ? Theme.tr("§a[译: 开]") : Theme.tr("§7[译: 关]");
-            g.drawString(font, transBtn, x + w - font.width(transBtn) - 8, lrcY - 11, Theme.c(0xFFFFFF), false);
+        boolean showToggle = hasTrans || com.musicmod.api.RomajiSupport.available();
+        int transW = 0;
+        if (showToggle) {
+            String transBtn = LyricsDisplayHelper.showsSecondary() ? Theme.tr("§a[显示: ") + Theme.tr(LyricsDisplayHelper.shortLabel()) + Theme.tr("]") : Theme.tr("§7[仅原文]");
+            transW = font.width(transBtn);
+            g.drawString(font, transBtn, x + w - transW - 8, lrcY - 11, Theme.c(0xFFFFFF), false);
         }
         if (!lyricsAutoFollow) {
             String followBtn = Theme.tr("§e♪ 跟随 »");
-            int fX = x + w - (hasTrans ? font.width(Theme.tr("§a[译: 开]")) + 20 : 8) - font.width(followBtn);
+            int fX = x + w - (showToggle ? transW + 20 : 8) - font.width(followBtn);
             g.drawString(font, followBtn, fX, lrcY - 11, Theme.c(0xFFD700), false);
         }
         g.fill(x + 4, lrcY, x + w - 4, lrcY + lrcH, Theme.c(0x60000000));
@@ -1991,7 +2059,7 @@ public class MusicAppScreen extends Screen {
             UiText.centered(g, font, Theme.tr("§7暂无歌词"), x + w / 2, lrcY + lrcH / 2 - 4, Theme.c(0xAAAAAA));
             return;
         }
-        boolean showTrans = MusicModConfig.getShowTranslation() && hasTrans;
+        boolean showTrans = LyricsDisplayHelper.showsSecondary();
         boolean transAfter = showTrans
                 && MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.AFTER;
         int lineH = 12, transH = 10;
@@ -1999,7 +2067,7 @@ public class MusicAppScreen extends Screen {
         int totalH = 0;
         for (int i = 0; i < lines.size(); i++) {
             lineYs[i] = totalH;
-            totalH += lineH + (!transAfter && showTrans && lines.get(i).translation != null ? transH : 0);
+            totalH += lineH + (!transAfter && showTrans && LyricsDisplayHelper.secondary(lines.get(i).text, lines.get(i).translation) != null ? transH : 0);
         }
         lineYs[lines.size()] = totalH;
         int viewH = lrcH - 8;
@@ -2027,22 +2095,23 @@ public class MusicAppScreen extends Screen {
             // 0.27.1：选取框（DOUBLE 模式/详情双击播放第一次点击选中的行）——
             // 第一次点击只画选择框，不再铺整行高亮
             if (i == selectedLyricLine) {
-                int selH = lineH + (!transAfter && showTrans && line.translation != null ? transH : 0);
-                g.renderOutline(x + 6, ly - 1, w - 16, selH, Theme.c(0xFFB4551E));
+                int selH = lineH + (!transAfter && showTrans && LyricsDisplayHelper.secondary(line.text, line.translation) != null ? transH : 0);
+                g.renderOutline(x + 6, ly - 1, w - 16, selH, Theme.selection());
             }
             String text = line.text;
-            if (transAfter && line.translation != null && !line.translation.isEmpty()) {
-                text = text + " §8" + line.translation;
+            String secondary = LyricsDisplayHelper.secondary(line.text, line.translation);
+            if (transAfter && secondary != null) {
+                text = text + " §8" + secondary;
             }
             text = truncate(font, text, textMaxW);
             if (i == active) {
-                UiText.centered(g, font, "§a" + text, x + w / 2, ly, Theme.c(0x55FF55));
+                UiText.centered(g, font, text, x + w / 2, ly, Theme.nowPlayingText());
             } else {
                 // 0.27.1：选取行文字不高亮，仅靠行背景色区分（与歌曲列表选取框一致）
                 UiText.centered(g, font, text, x + w / 2, ly, Theme.c(0xBBBBBB));
             }
-            if (!transAfter && showTrans && line.translation != null && !line.translation.isEmpty()) {
-                String trans = truncate(font, line.translation, textMaxW - 8);
+            if (!transAfter && showTrans && secondary != null) {
+                String trans = truncate(font, secondary, textMaxW - 8);
                 UiText.centered(g, font, "§8" + trans, x + w / 2, ly + lineH, Theme.c(0x888899));
             }
         }
@@ -2164,13 +2233,11 @@ public class MusicAppScreen extends Screen {
         // ---- 详情面板 ----
         if (detailSong != null) {
             if (mx >= x - 2 && mx <= x + w + 2 && my >= 4 && my <= y0 + h + 2) {
-                // 关闭按钮
-                String closeText = Theme.tr("§c✕ 关闭");
-                int closeX = x + w - font.width(closeText) - 6;
-                int closeY = y0 + 4;
-                if (mx >= closeX - 3 && mx <= x + w - 2 && my >= closeY - 2 && my <= closeY + 11) {
-                    detailSong = null;
-                    resetDetailStates();
+                // 编辑标签（红色关闭按钮已移除，详情用 ESC 返回）
+                int editY = y0 + 4;
+                if (detailEditX >= 0 && mx >= detailEditX - 2 && mx <= detailEditX + detailEditW + 2
+                        && my >= editY - 2 && my <= editY + 11) {
+                    openDetailTagEditor();
                     return true;
                 }
                 // 收藏切换 / 添加到歌单
@@ -2198,20 +2265,22 @@ public class MusicAppScreen extends Screen {
                     String lyrics = info != null ? info.lyrics : "";
                     boolean hasTrans = lyrics != null && !lyrics.isEmpty()
                             && LyricsParser.hasTranslation(LyricsParser.parse(lyrics));
-                    if (hasTrans) {
-                        String transBtn = MusicModConfig.getShowTranslation() ? Theme.tr("§a[译: 开]") : Theme.tr("§7[译: 关]");
-                        int tX = x + w - font.width(transBtn) - 8;
-                        if (mx >= tX && mx <= tX + font.width(transBtn)
+                    boolean showToggle = hasTrans || com.musicmod.api.RomajiSupport.available();
+                    int transW = 0;
+                    if (showToggle) {
+                        String transBtn = LyricsDisplayHelper.showsSecondary() ? Theme.tr("§a[显示: ") + Theme.tr(LyricsDisplayHelper.shortLabel()) + Theme.tr("]") : Theme.tr("§7[仅原文]");
+                        transW = font.width(transBtn);
+                        int tX = x + w - transW - 8;
+                        if (mx >= tX && mx <= tX + transW
                                 && my >= lrcY - 11 && my <= lrcY + 1) {
-                            MusicModConfig.setShowTranslation(!MusicModConfig.getShowTranslation());
-                            MusicModConfig.saveClientConfig();
+                            LyricsDisplayHelper.cycle();
                             return true;
                         }
                     }
                     // 跟随按钮
                     if (!lyricsAutoFollow) {
                         String followBtn = Theme.tr("§e♪ 跟随 »");
-                        int fX = x + w - (hasTrans ? font.width(Theme.tr("§a[译: 开]")) + 20 : 8)
+                        int fX = x + w - (showToggle ? transW + 20 : 8)
                                 - font.width(followBtn);
                         if (mx >= fX && mx <= fX + font.width(followBtn)
                                 && my >= lrcY - 11 && my <= lrcY + 1) {
@@ -2396,7 +2465,13 @@ public class MusicAppScreen extends Screen {
         if (selectedSong != null && !selectedSong.isEmpty() && nav != Nav.PLAYLIST
                 && my >= playerBarY() - 14 && my <= playerBarY() - 1
                 && mx >= x && mx <= x + w) {
-            if (isOp() && addSongHintX >= 0
+            if (isOp() && deleteSongHintX >= 0 && mx >= deleteSongHintX - 2
+                && mx <= deleteSongHintX + deleteSongHintW + 2
+                && my >= playerBarY() - 20 && my <= playerBarY() - 1) {
+            deleteSelectedSong();
+            return true;
+        }
+        if (isOp() && addSongHintX >= 0
                     && mx >= addSongHintX - 2
                     && mx <= addSongHintX + addSongHintW + 2) {
                 openAddToPlaylistPopup(selectedSong);
@@ -2595,6 +2670,16 @@ public class MusicAppScreen extends Screen {
             progressDragging = false;
             long seekMs = dragPreviewMs >= 0 ? dragPreviewMs : clampSeekMs(mx);
             dragPreviewMs = -1;
+            // 缓冲中的流尚未落到完整缓存，seek 会取消/重建传输并让解码线程等不到数据；
+            // 完整缓存后（含边下边播结束）才允许调整。
+            if (ClientMusicManager.getInstance().isBuffering()) {
+                if (Minecraft.getInstance().player != null) {
+                    Minecraft.getInstance().player.displayClientMessage(
+                            net.minecraft.network.chat.Component.literal(
+                                    com.musicmod.i18n.Lang.tr("§e歌曲缓冲中，暂时不能调整进度")), true);
+                }
+                return true;
+            }
             NetworkHandler.sendToServer(new C2SMusicActionPacket(
                     C2SMusicActionPacket.ACTION_SEEK, "", seekMs));
             return true;
@@ -2793,13 +2878,13 @@ public class MusicAppScreen extends Screen {
         if (lyrics == null || lyrics.isEmpty()) return;
         List<LyricsParser.Line> lines = LyricsParser.parse(lyrics);
         if (lines.isEmpty()) return;
-        boolean showTrans = MusicModConfig.getShowTranslation() && LyricsParser.hasTranslation(lines);
+        boolean showTrans = LyricsDisplayHelper.showsSecondary();
         boolean transAfter = showTrans
                 && MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.AFTER;
         int lineH = 12, transH = 10;
         int totalH = 0;
         for (LyricsParser.Line line : lines) {
-            totalH += lineH + (!transAfter && showTrans && line.translation != null ? transH : 0);
+            totalH += lineH + (!transAfter && showTrans && LyricsDisplayHelper.secondary(line.text, line.translation) != null ? transH : 0);
         }
         int viewH = lrcH - 8;
         int maxScroll = Math.max(0, totalH - viewH);
@@ -2864,13 +2949,13 @@ public class MusicAppScreen extends Screen {
         List<LyricsParser.Line> lines = LyricsParser.parse(lyrics);
         if (lines.isEmpty()) return 0;
         boolean hasTrans = LyricsParser.hasTranslation(lines);
-        boolean showTrans = MusicModConfig.getShowTranslation() && hasTrans;
+        boolean showTrans = LyricsDisplayHelper.showsSecondary();
         boolean transAfter = showTrans
                 && MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.AFTER;
         int lineH = 12, transH = 10;
         int totalH = 0;
         for (LyricsParser.Line line : lines) {
-            totalH += lineH + (!transAfter && showTrans && line.translation != null ? transH : 0);
+            totalH += lineH + (!transAfter && showTrans && LyricsDisplayHelper.secondary(line.text, line.translation) != null ? transH : 0);
         }
         int viewH = lrcH - 8;
         return Math.max(0, totalH - viewH);
@@ -2889,7 +2974,7 @@ public class MusicAppScreen extends Screen {
         if (lyrics == null || lyrics.isEmpty()) return;
         List<LyricsParser.Line> lines = LyricsParser.parse(lyrics);
         if (lines.isEmpty() || !LyricsParser.isTimed(lines)) return;
-        boolean showTrans = MusicModConfig.getShowTranslation() && LyricsParser.hasTranslation(lines);
+        boolean showTrans = LyricsDisplayHelper.showsSecondary();
         boolean transAfter = showTrans
                 && MusicModConfig.getDetailLyricsTransPos() == MusicModConfig.LyricsTransPos.AFTER;
         int lineH = 12, transH = 10;
@@ -2897,7 +2982,7 @@ public class MusicAppScreen extends Screen {
         int totalH = 0;
         for (int i = 0; i < lines.size(); i++) {
             lineYs[i] = totalH;
-            totalH += lineH + (!transAfter && showTrans && lines.get(i).translation != null ? transH : 0);
+            totalH += lineH + (!transAfter && showTrans && LyricsDisplayHelper.secondary(lines.get(i).text, lines.get(i).translation) != null ? transH : 0);
         }
         lineYs[lines.size()] = totalH;
         int clickY = my - lrcY - 4 + lyricsScrollPx;
@@ -2983,7 +3068,7 @@ public class MusicAppScreen extends Screen {
     }
 
     private Component translationBtnText() {
-        return Component.literal(MusicModConfig.getShowTranslation() ? Theme.tr("显示翻译") : Theme.tr("仅原文"));
+        return Component.literal(Theme.tr(com.musicmod.client.LyricsDisplayHelper.label()));
     }
 
     private Component noteIconBtnText() {
@@ -3013,7 +3098,7 @@ public class MusicAppScreen extends Screen {
     /** 0.27.0：歌词点击模式按钮文本 */
     private Component lyricsClickModeBtnText() {
         return Component.literal(MusicModConfig.getLyricsClickMode() == MusicModConfig.LyricsClickMode.SINGLE
-                ? Theme.tr("歌词跳转: 单击") : Theme.tr("歌词跳转: 双击"));
+                ? Theme.tr("单击") : Theme.tr("双击"));
     }
 
     /** 0.27.0：详情双击播放按钮文本 */
@@ -3028,7 +3113,7 @@ public class MusicAppScreen extends Screen {
 
     private Component detailDblClickPlayBtnText() {
         return Component.literal(MusicModConfig.getDetailDblClickPlay()
-                ? Theme.tr("详情双击播放: 开") : Theme.tr("详情双击播放: 关"));
+                ? Theme.tr("开") : Theme.tr("关"));
     }
 
     private Component playModeBtnText() {
@@ -3037,6 +3122,14 @@ public class MusicAppScreen extends Screen {
 
     private Component emptyServerBtnText() {
         return Component.literal(Theme.tr("无人时: ") + ClientMusicManager.getInstance().getLastEmptyBehavior().getDisplayName());
+    }
+
+    private void deleteSelectedSong() {
+        if (selectedSong == null || !isOp()) return;
+        String song = selectedSong;
+        NetworkHandler.sendToServer(new C2SDeleteSongPacket(song));
+        ClientMusicManager.getInstance().deleteCachedSong(song);
+        selectedSong = null;
     }
 
     private void sendAction(byte action) {

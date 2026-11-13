@@ -1,6 +1,7 @@
 package com.musicmod.client;
 
 import com.musicmod.i18n.Lang;
+import com.musicmod.api.RomajiSupport;
 
 import com.musicmod.MusicMod;
 import com.musicmod.client.gui.LyricsParser;
@@ -82,22 +83,49 @@ public class ClientEventHandler {
                         : new com.musicmod.client.gui.MusicAppScreen());
             }
         }
-        // K 键循环切换 HUD 模式：歌词 → 歌名 → 关闭
-        while (ModKeyBindings.CYCLE_HUD_MODE.consumeClick()) {
-            MusicModConfig.HudMode mode = MusicModConfig.cycleHudMode();
-            MusicModConfig.saveClientConfig();
-            String modeText = mode == MusicModConfig.HudMode.LYRICS ? Lang.tr("§b歌词")
-                    : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("§a歌名")
-                    : mode == MusicModConfig.HudMode.CARD ? Lang.tr("§d卡片") : Lang.tr("§c关闭");
-            mc.player.displayClientMessage(
-                    Component.literal(Lang.tr("§6♪ §eHUD 显示: ") + modeText), true);
-        }
-        // N 键循环切换播放模式（需 OP，服务端校验）
+        // N 键循环切换播放模式（需 OP，服务端校验）并提示当前模式
         while (ModKeyBindings.CYCLE_PLAY_MODE.consumeClick()) {
             com.musicmod.network.packet.C2SMusicActionPacket pkt =
                     new com.musicmod.network.packet.C2SMusicActionPacket(
                             com.musicmod.network.packet.C2SMusicActionPacket.ACTION_PLAY_MODE, "");
             com.musicmod.network.NetworkHandler.sendToServer(pkt);
+            com.musicmod.PlayMode next = ClientMusicManager.getInstance().getLastPlayMode().next();
+            mc.player.displayClientMessage(Component.literal(
+                    Lang.tr("§6♪ §e播放模式: ") + "§f" + next.getDisplayName()), true);
+        }
+        // 方向键：上下切歌，左右快退/快进（无界面时生效）
+        if (mc.screen == null) {
+            while (ModKeyBindings.PREV_TRACK.consumeClick()) {
+                com.musicmod.network.NetworkHandler.sendToServer(
+                        new com.musicmod.network.packet.C2SMusicActionPacket(
+                                com.musicmod.network.packet.C2SMusicActionPacket.ACTION_PREV, ""));
+            }
+            while (ModKeyBindings.NEXT_TRACK.consumeClick()) {
+                com.musicmod.network.NetworkHandler.sendToServer(
+                        new com.musicmod.network.packet.C2SMusicActionPacket(
+                                com.musicmod.network.packet.C2SMusicActionPacket.ACTION_NEXT, ""));
+            }
+            boolean back = false, forward = false;
+            while (ModKeyBindings.SEEK_BACK.consumeClick()) back = true;
+            while (ModKeyBindings.SEEK_FORWARD.consumeClick()) forward = true;
+            if (back || forward) {
+                if (ClientMusicManager.getInstance().isBuffering()) {
+                    if (Minecraft.getInstance().player != null) {
+                        Minecraft.getInstance().player.displayClientMessage(
+                                net.minecraft.network.chat.Component.literal(
+                                        com.musicmod.i18n.Lang.tr("§e歌曲缓冲中，暂时不能调整进度")), true);
+                    }
+                    return;
+                }
+                com.musicmod.audio.AudioEngine engine =
+                        ClientMusicManager.getInstance().getAudioEngine();
+                long pos = Math.max(0L, engine.getCurrentPositionMs() + (forward ? 5000L : -5000L));
+                long dur = engine.getSongDurationMs();
+                if (dur > 0) pos = Math.min(pos, dur);
+                com.musicmod.network.NetworkHandler.sendToServer(
+                        new com.musicmod.network.packet.C2SMusicActionPacket(
+                                com.musicmod.network.packet.C2SMusicActionPacket.ACTION_SEEK, "", pos));
+            }
         }
     }
 
@@ -383,11 +411,8 @@ public class ClientEventHandler {
             }
             if (showLine >= 0) {
                 LyricsParser.Line line = lyricsCacheLines.get(showLine);
-                String trans = null;
-                if (MusicModConfig.getShowTranslation()
-                        && line.translation != null && !line.translation.isEmpty()) {
-                    trans = "§7" + line.translation;
-                }
+                String secondary = LyricsDisplayHelper.secondary(line.text, line.translation);
+                String trans = secondary == null ? null : "§7" + secondary;
                 return new String[]{"§f" + line.text, trans};
             }
         }

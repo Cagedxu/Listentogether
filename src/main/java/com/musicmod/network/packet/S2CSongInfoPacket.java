@@ -59,8 +59,12 @@ public class S2CSongInfoPacket {
     public void handle(Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                    ClientTagStore.getInstance().onSongInfoReceived(
-                            songName, title, artist, album, durationMs, coverJpeg, lyrics));
+            {
+                ClientTagStore.getInstance().onSongInfoReceived(
+                        songName, title, artist, album, durationMs, coverJpeg, lyrics);
+                com.musicmod.client.ClientMusicManager.getInstance().syncCachedTags(
+                        songName, title, artist, album, lyrics, coverJpeg, coverMime);
+            });
         });
         ctx.get().setPacketHandled(true);
     }

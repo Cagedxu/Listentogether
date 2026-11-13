@@ -24,12 +24,19 @@ public class ModKeyBindings {
             GLFW.GLFW_KEY_F8,
             "key.categories.musicmod");
 
-    /** K 键循环切换 HUD 显示模式：歌词 → 歌名 → 关闭 */
-    public static final KeyMapping CYCLE_HUD_MODE = new KeyMapping(
-            "key.musicmod.cycle_hud_mode",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_K,
-            "key.categories.musicmod");
+    /** 方向键：上下切歌，左右快退/快进 */
+    public static final KeyMapping PREV_TRACK = new KeyMapping(
+            "key.musicmod.prev_track", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_UP, "key.categories.musicmod");
+    public static final KeyMapping NEXT_TRACK = new KeyMapping(
+            "key.musicmod.next_track", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_DOWN, "key.categories.musicmod");
+    public static final KeyMapping SEEK_BACK = new KeyMapping(
+            "key.musicmod.seek_back", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT, "key.categories.musicmod");
+    public static final KeyMapping SEEK_FORWARD = new KeyMapping(
+            "key.musicmod.seek_forward", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_RIGHT, "key.categories.musicmod");
 
     /** N 键循环切换播放模式：顺序 → 单曲循环 → 随机 */
     public static final KeyMapping CYCLE_PLAY_MODE = new KeyMapping(
@@ -41,7 +48,10 @@ public class ModKeyBindings {
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_PLAYER);
-        event.register(CYCLE_HUD_MODE);
         event.register(CYCLE_PLAY_MODE);
+        event.register(PREV_TRACK);
+        event.register(NEXT_TRACK);
+        event.register(SEEK_BACK);
+        event.register(SEEK_FORWARD);
     }
 }

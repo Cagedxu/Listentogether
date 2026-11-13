@@ -29,6 +29,8 @@ public class MusicModConfig {
         public final ForgeConfigSpec.ConfigValue<String> customFontPath;
         public final ForgeConfigSpec.BooleanValue fontThemeSynced;
         public final ForgeConfigSpec.BooleanValue showTranslation;
+        public final ForgeConfigSpec.BooleanValue showRomaji;
+        public final ForgeConfigSpec.EnumValue<LyricsDisplay> lyricsDisplay;
         public final ForgeConfigSpec.BooleanValue worldLyrics;
         public final ForgeConfigSpec.BooleanValue worldLyricsFollow;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
@@ -56,8 +58,8 @@ public class MusicModConfig {
                     .comment("播放器界面风格：PLAYER = 播放器风格（默认，左侧导航+歌手/专辑/歌词/封面），CLASSIC = 精简模式（紧凑列表）")
                     .defineEnum("uiStyle", UiStyle.PLAYER);
             uiTheme = builder
-                    .comment("播放器界面主题：DARK = 深色（默认），LIGHT = 浅色")
-                    .defineEnum("uiTheme", UiTheme.DARK);
+                    .comment("播放器界面主题：LIGHT = 浅色（默认），DARK = 深色")
+                    .defineEnum("uiTheme", UiTheme.LIGHT);
             fontMode = builder
                     .comment("模组界面字体：MOD = 内置 Noto Sans SC（默认），GAME = 游戏字体，CUSTOM = 自定义 TTF/OTF")
                     .defineEnum("fontMode", FontMode.GAME);
@@ -70,6 +72,12 @@ public class MusicModConfig {
             showTranslation = builder
                     .comment("歌词详情中是否显示翻译歌词（双语 LRC 中相同时间戳的第二行）")
                     .define("showTranslation", true);
+            showRomaji = builder
+                    .comment("兼容旧版：播放日语歌曲时用罗马音替代翻译（已由 lyricsDisplay 取代）")
+                    .define("showRomaji", false);
+            lyricsDisplay = builder
+                    .comment("歌词显示：TRANSLATION=显示翻译（默认），ORIGINAL=仅原文，ROMAJI=显示罗马音（需拓展）")
+                    .defineEnum("lyricsDisplay", LyricsDisplay.TRANSLATION);
             worldLyrics = builder
                     .comment("是否在世界中显示 3D 漂浮歌词（视线前方、逐字浮现、带发光）")
                     .define("worldLyrics", true);
@@ -189,6 +197,13 @@ public class MusicModConfig {
         BELOW,
         /** 翻译显示在原文后方（同一行） */
         AFTER
+    }
+
+    /** 歌词显示模式：翻译 / 仅原文 / 罗马音（需拓展） */
+    public enum LyricsDisplay {
+        TRANSLATION,
+        ORIGINAL,
+        ROMAJI
     }
 
     /** 歌词点击跳转模式枚举（0.27.0 新增） */
@@ -426,6 +441,37 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.showTranslation.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set showTranslation config", e);
+        }
+    }
+
+    public static LyricsDisplay getLyricsDisplay() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.lyricsDisplay.get();
+        } catch (Exception ignored) {}
+        return LyricsDisplay.TRANSLATION;
+    }
+
+    public static void setLyricsDisplay(LyricsDisplay mode) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.lyricsDisplay.set(mode);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set lyricsDisplay config", e);
+        }
+    }
+
+    /** 是否用罗马音替代日语歌曲翻译（默认 false） */
+    public static boolean getShowRomaji() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.showRomaji.get();
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    public static void setShowRomaji(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.showRomaji.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set showRomaji config", e);
         }
     }
 

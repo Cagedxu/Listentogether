@@ -137,6 +137,17 @@ public class NetworkHandler {
                 .decoder(C2SPlaylistActionPacket::new)
                 .consumerMainThread(C2SPlaylistActionPacket::handle)
                 .add();
+
+        CHANNEL.messageBuilder(C2SDeleteSongPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SDeleteSongPacket::encode)
+                .decoder(C2SDeleteSongPacket::new)
+                .consumerMainThread(C2SDeleteSongPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(C2STagEditPacket.class, packetId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2STagEditPacket::encode)
+                .decoder(C2STagEditPacket::new)
+                .consumerMainThread(C2STagEditPacket::handle)
+                .add();
     }
 
     /**

@@ -123,8 +123,7 @@ public class MusicModConfigScreen extends Screen {
         this.addRenderableWidget(hudBtn);
 
         translationBtn = Button.builder(translationBtnText(), btn -> {
-            MusicModConfig.setShowTranslation(!MusicModConfig.getShowTranslation());
-            MusicModConfig.saveClientConfig();
+            com.musicmod.client.LyricsDisplayHelper.cycle();
             btn.setMessage(translationBtnText());
         }).bounds(leftX, 0, BTN_W, BTN_H).build();
         this.addRenderableWidget(translationBtn);
@@ -481,7 +480,7 @@ public class MusicModConfigScreen extends Screen {
     }
 
     private Component translationBtnText() {
-        return Component.literal(Lang.tr("翻译歌词: ") + (MusicModConfig.getShowTranslation() ? Lang.tr("§a显示") : Lang.tr("§7仅原文")));
+        return Component.literal(Lang.tr("歌词显示: ") + Lang.tr(com.musicmod.client.LyricsDisplayHelper.label()));
     }
 
     private Component noteIconBtnText() {
