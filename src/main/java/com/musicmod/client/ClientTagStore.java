@@ -46,6 +46,7 @@ public class ClientTagStore {
 
     private final Map<String, TagEntry> tagMap = new ConcurrentHashMap<>();
     private final Map<String, SongInfo> infoMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> playCounts = new ConcurrentHashMap<>();
     private final Set<String> requestedInfo = ConcurrentHashMap.newKeySet();
 
     private ClientTagStore() {}
@@ -72,6 +73,18 @@ public class ClientTagStore {
             }
         }
         MusicMod.LOGGER.info("Received tags for {} songs", entries.size());
+    }
+
+    /** 收到当前存档的播放次数快照 */
+    public void onPlayCountsReceived(Map<String, Integer> counts) {
+        playCounts.clear();
+        if (counts != null) {
+            playCounts.putAll(counts);
+        }
+    }
+
+    public int playCount(String songName) {
+        return playCounts.getOrDefault(songName, 0);
     }
 
     /** 收到单曲详情 */
@@ -159,6 +172,7 @@ public class ClientTagStore {
     public void clear() {
         tagMap.clear();
         infoMap.clear();
+        playCounts.clear();
         requestedInfo.clear();
         CoverTextureManager.clearAll();
     }

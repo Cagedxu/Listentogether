@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-「一起听」(Listen Together) 的本体代码以 **MIT License** 发布（见根目录 `LICENSE`）。
+「一起听」(Listen Together) 的本体代码以 **GNU GPL v3.0 only** 发布（见根目录 `LICENSE`）。
 
 构建产物中合并了以下开源音频解码库。它们仍然是各自作者的版权作品，并继续适用各自的许可证；本模组未修改其源代码。
 
@@ -35,6 +35,13 @@ Forge Jar-in-Jar 下的 split-package 冲突），如果你需要修改或替换
 - 没有附带任何音乐、封面或歌词文件；歌曲由服务器管理员自行提供。
 - 没有附带 Minecraft / Mojang 的材质、音效或其他资产。
 - 没有附带 Forge 或其他非音频依赖；它们由运行环境提供。
+
+## 3D 世界歌词
+
+3D 世界歌词的交互方式与视觉设计参考了 [DangoMusic](https://github.com/Sorihiko/DangoMusic)（GPL-3.0）：
+歌词在世界中漂浮、逐字浮现、轻微抖动、暖白发光、跟随玩家屏幕，以及设置项的组织方式。
+本模组为独立实现，未复制其源代码；相关实现位于 `src/main/java/com/musicmod/client/WorldLyricsRenderer.java`。
+感谢 DangoMusic 作者 Sorihiko 的公开实现与设计。
 
 ## Trademarks
 

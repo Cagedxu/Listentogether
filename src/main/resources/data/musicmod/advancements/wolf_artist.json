@@ -1,0 +1,15 @@
+{
+  "display": {
+    "icon": { "item": "minecraft:music_disc_13" },
+    "title": { "translate": "advancements.musicmod.wolf_artist.title" },
+    "description": { "translate": "advancements.musicmod.wolf_artist.description" },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "parent": "minecraft:adventure/root",
+  "criteria": {
+    "impossible": { "trigger": "minecraft:impossible" }
+  }
+}

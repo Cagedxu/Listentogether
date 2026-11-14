@@ -372,5 +372,7 @@
   "key.musicmod.seek_forward": "前進 5 秒",
   "§7歌词显示": "§7歌詞顯示",
   "歌词显示: ": "歌詞顯示: ",
-  "显示罗马音": "顯示羅馬音"
+  "显示罗马音": "顯示羅馬音",
+  "advancements.musicmod.wolf_artist.title": "原來你也聽狼音了口！",
+  "advancements.musicmod.wolf_artist.description": "上傳或播放一首狼音アロ的歌曲"
 }

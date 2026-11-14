@@ -377,5 +377,7 @@
   "key.musicmod.seek_forward": "Seek Forward 5s",
   "§7歌词显示": "§7Lyrics display",
   "歌词显示: ": "Lyrics display: ",
-  "显示罗马音": "Show romaji"
+  "显示罗马音": "Show romaji",
+  "advancements.musicmod.wolf_artist.title": "So You Listen to Rouon Aro Too!",
+  "advancements.musicmod.wolf_artist.description": "Upload or play a song by Rouon Aro."
 }

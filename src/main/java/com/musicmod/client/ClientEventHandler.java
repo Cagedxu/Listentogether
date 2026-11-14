@@ -68,6 +68,15 @@ public class ClientEventHandler {
             }
         }
         if (mc.player == null) return;
+        boolean underwater = com.musicmod.config.MusicModConfig.isUnderwaterSoundEnabled()
+                && mc.player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
+        ClientMusicManager.getInstance().getAudioEngine().setUnderwater(underwater);
+        boolean cave = com.musicmod.config.MusicModConfig.isCaveEchoEnabled()
+                && mc.player.getY() < 62.0D
+                && !mc.player.level().canSeeSky(mc.player.blockPosition())
+                && mc.player.level().getBrightness(net.minecraft.world.level.LightLayer.SKY,
+                        mc.player.blockPosition()) <= 0;
+        ClientMusicManager.getInstance().getAudioEngine().setCaveEcho(cave);
         // 单人游戏打开任意 GUI 时集成服务器会暂停，音乐服务端 tick 也停止；
         // 这里在客户端 tick 中补 tick，保证歌曲播完后仍会自动下一首。
         if (mc.isPaused() && mc.getSingleplayerServer() != null) {

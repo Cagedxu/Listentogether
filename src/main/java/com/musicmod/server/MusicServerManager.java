@@ -211,6 +211,16 @@ public class MusicServerManager {
         // 通知所有玩家（聊天栏消息，显示标签标题）
         SongTags tags = musicLibrary.getTags(songName);
         broadcastMessage(Lang.tr("§6♪ §e正在播放: §f") + tags.getDisplayTitle());
+
+        // 存档内播放次数 +1，并同步给所有客户端
+        PlayCountData counts = PlayCountData.get(server);
+        counts.increment(songName);
+        NetworkHandler.sendToAllPlayers(new S2CPlayCountsPacket(counts.snapshot()));
+
+        // 狼音アロ 成就
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            WolfArtistAchievement.check(player, tags);
+        }
         return true;
     }
 
@@ -970,6 +980,10 @@ public class MusicServerManager {
                 NetworkHandler.sendToPlayer(new S2CPausePacket(true, pausedAtMs), player);
             }
         }
+        // 同步当前存档的歌曲播放次数
+        NetworkHandler.sendToPlayer(new S2CPlayCountsPacket(
+                PlayCountData.get(server).snapshot()), player);
+
         // 同步当前无人时行为设置给新玩家（0.25.0）
         NetworkHandler.sendToPlayer(new S2CEmptyBehaviorPacket(
                 MusicModConfig.getServerEmptyServerBehavior()), player);
@@ -1176,6 +1190,10 @@ public class MusicServerManager {
             // 广播通知全服
             broadcastMessage(Lang.tr("§6♪ §e管理员 §f") + player.getName().getString()
                     + Lang.tr(" §e上传了新歌曲: §f") + safeName);
+
+            // 上传狼音アロ 的歌曲也触发成就
+            SongTags uploadedTags = musicLibrary.getTags(getSongDisplayName(targetFile));
+            WolfArtistAchievement.check(player, uploadedTags);
 
         } catch (IOException e) {
             MusicMod.LOGGER.error("Failed to save uploaded file '{}'", session.fileName, e);

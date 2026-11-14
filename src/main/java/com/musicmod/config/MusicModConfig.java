@@ -33,6 +33,8 @@ public class MusicModConfig {
         public final ForgeConfigSpec.EnumValue<LyricsDisplay> lyricsDisplay;
         public final ForgeConfigSpec.BooleanValue worldLyrics;
         public final ForgeConfigSpec.BooleanValue worldLyricsFollow;
+        public final ForgeConfigSpec.BooleanValue caveEcho;
+        public final ForgeConfigSpec.BooleanValue underwaterSound;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
         public final ForgeConfigSpec.BooleanValue queueShowPlayed;
         public final ForgeConfigSpec.BooleanValue pauseSingleplayer;
@@ -84,6 +86,12 @@ public class MusicModConfig {
             worldLyricsFollow = builder
                     .comment("3D 歌词即将离开视野或距离过远时，是否平滑跟随玩家屏幕（默认 true）")
                     .define("worldLyricsFollow", true);
+            caveEcho = builder
+                    .comment("在矿洞中播放歌曲时是否增加回音效果（默认 true，只影响本机）")
+                    .define("caveEcho", true);
+            underwaterSound = builder
+                    .comment("玩家在水下时是否对歌曲应用水下音效（默认 true，只影响本机）")
+                    .define("underwaterSound", true);
             showHudNoteIcon = builder
                     .comment("HUD 歌词左侧是否显示音符图标")
                     .define("showHudNoteIcon", true);
@@ -506,6 +514,40 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.worldLyricsFollow.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set worldLyricsFollow config", e);
+        }
+    }
+
+    /** 矿洞中播放歌曲时是否增加回音（默认 true） */
+    public static boolean isCaveEchoEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.caveEcho.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置矿洞回音开关 */
+    public static void setCaveEchoEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.caveEcho.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set caveEcho config", e);
+        }
+    }
+
+    /** 水下是否应用水下音效（默认 true） */
+    public static boolean isUnderwaterSoundEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.underwaterSound.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置水下音效开关 */
+    public static void setUnderwaterSoundEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.underwaterSound.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set underwaterSound config", e);
         }
     }
 

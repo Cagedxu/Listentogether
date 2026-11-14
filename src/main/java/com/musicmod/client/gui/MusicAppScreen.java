@@ -99,6 +99,8 @@ public class MusicAppScreen extends Screen {
     private Button queueShowPlayedBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
     private Button worldLyricsBtn;
     private Button worldLyricsFollowBtn;
+    private Button caveEchoBtn;
+    private Button underwaterBtn;
     private Button noteIconBtn, openSongsDirBtn, openCacheDirBtn, uploadBtn;
     private Button lyricsAlignBtn, emptyServerBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
@@ -553,6 +555,20 @@ public class MusicAppScreen extends Screen {
         }).bounds(btnX, LIST_TOP + 556, btnW, 20).build();
         this.addRenderableWidget(worldLyricsFollowBtn);
 
+        underwaterBtn = Button.builder(underwaterBtnText(), btn -> {
+            MusicModConfig.setUnderwaterSoundEnabled(!MusicModConfig.isUnderwaterSoundEnabled());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(underwaterBtnText());
+        }).bounds(btnX, LIST_TOP + 582, btnW, 20).build();
+        this.addRenderableWidget(underwaterBtn);
+
+        caveEchoBtn = Button.builder(caveEchoBtnText(), btn -> {
+            MusicModConfig.setCaveEchoEnabled(!MusicModConfig.isCaveEchoEnabled());
+            MusicModConfig.saveClientConfig();
+            btn.setMessage(caveEchoBtnText());
+        }).bounds(btnX, LIST_TOP + 608, btnW, 20).build();
+        this.addRenderableWidget(caveEchoBtn);
+
 
         if (singleplayer) {
             songsDirBox = new BorderedEditBox(this.font, sx, LIST_TOP + 438, sw, 20,
@@ -1005,6 +1021,8 @@ public class MusicAppScreen extends Screen {
         if (transferLimitBtn != null) transferLimitBtn.visible = showSettings && !singleplayer;
         if (worldLyricsBtn != null) worldLyricsBtn.visible = showSettings;
         if (worldLyricsFollowBtn != null) worldLyricsFollowBtn.visible = showSettings;
+        if (caveEchoBtn != null) caveEchoBtn.visible = showSettings;
+        if (underwaterBtn != null) underwaterBtn.visible = showSettings;
         if (songsDirBox != null) songsDirBox.visible = showSettings;
         if (applyDirBtn != null) applyDirBtn.visible = showSettings;
         if (openSongsDirBtn != null) openSongsDirBtn.visible = showSettings;
@@ -1720,11 +1738,21 @@ public class MusicAppScreen extends Screen {
                 ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
     }
 
+    private Component caveEchoBtnText() {
+        return Component.literal(MusicModConfig.isCaveEchoEnabled()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
+    }
+
+    private Component underwaterBtnText() {
+        return Component.literal(MusicModConfig.isUnderwaterSoundEnabled()
+                ? "§a" + Theme.tr("开启") : "§8" + Theme.tr("关闭"));
+    }
+
 
 
     private int settingsContentH() {
-        if (singleplayer) return 534;
-        return 568;
+        if (singleplayer) return 588;
+        return 620;
     }
 
     /** 将设置控件定位到滚动后的位置，并按可见性设置 visible */
@@ -1776,14 +1804,18 @@ public class MusicAppScreen extends Screen {
             positionSetting(settingsPlayModeBtn, 394, show, visibleH);
             positionSetting(worldLyricsBtn, 420, show, visibleH);
             positionSetting(worldLyricsFollowBtn, 446, show, visibleH);
-            positionSetting(songsDirBox, 484, show, visibleH);
-            positionSetting(applyDirBtn, 508, show, visibleH);
-            positionSetting(openSongsDirBtn, 508, show, visibleH);
+            positionSetting(underwaterBtn, 472, show, visibleH);
+            positionSetting(caveEchoBtn, 498, show, visibleH);
+            positionSetting(songsDirBox, 538, show, visibleH);
+            positionSetting(applyDirBtn, 562, show, visibleH);
+            positionSetting(openSongsDirBtn, 562, show, visibleH);
         } else {
             positionSetting(openCacheDirBtn, 438, show, visibleH);
             positionSetting(emptyServerBtn, 490, show, visibleH);
             positionSetting(worldLyricsBtn, 516, show, visibleH);
             positionSetting(worldLyricsFollowBtn, 542, show, visibleH);
+            positionSetting(underwaterBtn, 568, show, visibleH);
+            positionSetting(caveEchoBtn, 594, show, visibleH);
             // 上传按钮固定右上角，避免窗口变矮后滚出可视区域
             if (uploadBtn != null) {
                 int upW = Math.min(100, Math.max(72, w / 5));
@@ -1817,10 +1849,14 @@ public class MusicAppScreen extends Screen {
                 drawSettingLabel(g, font, Theme.tr("§7播放模式"), x, 400);
                 drawSettingLabel(g, font, Theme.tr("§73D 世界歌词"), x, 426);
                 drawSettingLabel(g, font, Theme.tr("§73D 歌词跟随屏幕"), x, 452);
-                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 470);
+                drawSettingLabel(g, font, Theme.tr("§7水下音效"), x, 478);
+                drawSettingLabel(g, font, Theme.tr("§7矿洞回音"), x, 504);
+                drawSettingLabel(g, font, Theme.tr("§7歌曲目录 （单人游戏）"), x, 524);
             } else {
                 drawSettingLabel(g, font, Theme.tr("§73D 世界歌词"), x, 522);
                 drawSettingLabel(g, font, Theme.tr("§73D 歌词跟随屏幕"), x, 548);
+                drawSettingLabel(g, font, Theme.tr("§7水下音效"), x, 574);
+                drawSettingLabel(g, font, Theme.tr("§7矿洞回音"), x, 600);
             }
             // 多人模式：服务器配置提示固定在右下角（不随滚动）
             if (!singleplayer) {
@@ -2014,6 +2050,10 @@ public class MusicAppScreen extends Screen {
         long dur = info != null ? info.durationMs : tags.durationSec(detailSong) * 1000L;
         g.drawString(font, Theme.t(Theme.tr("§7时长: §f")) + (dur > 0 ? formatDuration((int) (dur / 1000)) : Theme.tr("未知")),
                 infoX, coverY + 50, Theme.c(0xCCCCCC), false);
+        int playCount = com.musicmod.client.ClientTagStore.getInstance().playCount(detailSong);
+        String playCountText = Theme.t(Theme.tr("§7播放次数: §f")) + playCount;
+        g.drawString(font, playCountText, x + w - font.width(playCountText) - 4, coverY + 50,
+                Theme.c(0xCCCCCC), false);
         boolean fav = ClientFavorites.isFavorite(detailSong);
         String favText = fav ? Theme.tr("§c♥ 已收藏") : Theme.tr("§7♡ 收藏");
         int favY = coverY + 66;

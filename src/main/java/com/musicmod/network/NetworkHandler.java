@@ -75,6 +75,12 @@ public class NetworkHandler {
                 .consumerMainThread(S2CSongInfoPacket::handle)
                 .add();
 
+        CHANNEL.messageBuilder(S2CPlayCountsPacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CPlayCountsPacket::encode)
+                .decoder(S2CPlayCountsPacket::new)
+                .consumerMainThread(S2CPlayCountsPacket::handle)
+                .add();
+
         CHANNEL.messageBuilder(S2CPlayModePacket.class, packetId++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(S2CPlayModePacket::encode)
                 .decoder(S2CPlayModePacket::new)

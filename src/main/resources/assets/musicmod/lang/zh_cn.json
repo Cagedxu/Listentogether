@@ -1,6 +1,4 @@
 {
-  "key.categories.musicmod": "一起听 音乐",
-  "key.musicmod.open_player": "打开播放器界面",
-  "key.musicmod.cycle_hud_mode": "切换 HUD 显示模式",
-  "key.musicmod.cycle_play_mode": "切换播放模式"
+  "advancements.musicmod.wolf_artist.title": "原来你也听狼音了口！",
+  "advancements.musicmod.wolf_artist.description": "上传或播放一首狼音アロ的歌曲"
 }

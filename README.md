@@ -6,7 +6,7 @@
 
 当前构建：
 
-- **Forge 1.20.1**：根目录工程，`build/libs/Listentogether-1.3.0.jar`（含英语适配）
+- **Forge 1.20.1**：根目录工程，`build/libs/Listentogether-1.3.1.jar`（含英语适配）
 - **Fabric 1.20.1**：`fabric-1.20.1/` 独立工程，`musicmod-fabric-1.20.1-1.0.0.jar`
 - **Fabric 1.21.1 / NeoForge 1.21.1**：按用户要求暂停，暂不继续移植
 

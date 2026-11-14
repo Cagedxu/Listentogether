@@ -29,6 +29,7 @@ public class AudioEngine {
     private AudioInputStream decodedStream;
     private AudioInputStream rawStream;
     private Thread playThread;
+    private final UnderwaterAudioFilter underwaterFilter = new UnderwaterAudioFilter();
 
     private volatile boolean playing = false;
     private volatile boolean paused = false;
@@ -319,6 +320,8 @@ public class AudioEngine {
         }
         line = (SourceDataLine) AudioSystem.getLine(info);
         line.open(playFormat, 8192 * 4);
+        underwaterFilter.configure(playFormat.getSampleRate(), playFormat.getChannels(),
+                playFormat.getSampleSizeInBits(), playFormat.isBigEndian());
         applyVolume();
         line.start();
 
@@ -347,6 +350,7 @@ public class AudioEngine {
                 if (bytesRead == -1) {
                     break; // 播放完毕
                 }
+                underwaterFilter.process(buffer, 0, bytesRead);
                 line.write(buffer, 0, bytesRead);
                 totalBytesWritten += bytesRead;
             }
@@ -414,6 +418,16 @@ public class AudioEngine {
         startOffsetBytes = 0;
         totalBytesWritten = 0;
         songDurationMs = -1;
+    }
+
+    /** 客户端每 tick 根据玩家眼睛是否在水下调用；只影响本机播放。 */
+    public void setUnderwater(boolean underwater) {
+        underwaterFilter.setUnderwater(underwater);
+    }
+
+    /** 矿洞回音：只影响本机播放。 */
+    public void setCaveEcho(boolean cave) {
+        underwaterFilter.setCaveEcho(cave);
     }
 
     public void setPaused(boolean p) {
