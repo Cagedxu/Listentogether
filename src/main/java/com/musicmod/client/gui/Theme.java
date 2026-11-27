@@ -28,46 +28,104 @@ public final class Theme {
 
     /** 列表/面板内容底色：浅色模式下使用白色纸面，与暖色窗口底色区分。 */
     public static int listBg() {
-        return isLight() ? 0xFFF8F3E8 : 0xFF2A2A3A;
+        return isLight() ? 0xFFF8F3E8 : 0xFF191E25;
     }
 
     public static int rowPrimary() {
-        return isLight() ? 0xFF20202A : 0xFFF0F0F0;
+        return isLight() ? 0xFF20202A : 0xFFE6EDF5;
     }
 
     public static int rowSecondary() {
-        return isLight() ? 0xFF555560 : 0xFFBBBBBB;
+        return isLight() ? 0xFF555560 : 0xFFB6C2D0;
     }
 
     public static int rowMuted() {
-        return isLight() ? 0xFF666670 : 0xFF999999;
+        return isLight() ? 0xFF666670 : 0xFF8593A3;
+    }
+
+    /** 主题强调色：浅色暖陶土，深色琥珀。 */
+    public static int accent() {
+        return isLight() ? 0xFFB4551E : 0xFF7FA8C9;
+    }
+
+    /** 危险操作色：删除/移除。 */
+    public static int danger() {
+        return isLight() ? 0xFFA23B32 : 0xFFD96B6B;
     }
 
     /** 正在播放文字：浅色模式使用暖陶土色，避免绿色与暖色主题冲突。 */
     public static int nowPlayingText() {
-        return isLight() ? 0xFFB4551E : 0xFF55FF55;
+        return accent();
     }
 
     /** 正在播放行底色：浅色模式使用暖橙色淡底。 */
     public static int nowPlayingBg() {
-        return isLight() ? 0x33C97B4A : 0x50226633;
+        return isLight() ? 0x33C97B4A : 0x337FA8C9;
     }
 
     /** 列表/歌词选中框：浅色暖陶土，暗色与进度条一致的绿色。 */
     public static int selection() {
-        return isLight() ? 0xFFB4551E : 0xFF55FF55;
+        return accent();
     }
 
     /** 选中行底色：浅色暖陶土淡底，暗色进度条绿淡底。 */
     public static int selectionBg() {
-        return isLight() ? 0x33B4551E : 0x3355FF55;
+        return isLight() ? 0x33B4551E : 0x337FA8C9;
     }
 
     /** 将深色 UI 颜色转换成当前主题颜色。 */
     public static int c(int dark) {
         boolean noAlpha = (dark & 0xFF000000) == 0;
         if (!isLight()) {
-            return noAlpha ? (dark | 0xFF000000) : dark;
+            int result;
+            switch (dark) {
+                // 暖炭黑窗口 + 琥珀强调 + 米白文字
+                case 0x90000010: return 0xFF15181D;
+                case 0xFF1E1E2E: return 0xFF1B2028;
+                case 0xFF202030: return 0xFF222934;
+                case 0xFF2A2A3A: return 0xFF191E25;
+                case 0xFF4A4A60: return 0xFF303845;
+                case 0xFF3A3A50: return 0xFF2A3340;
+                case 0xFF15151F: return 0xFF101318;
+                case 0xFF333344: return 0xFF2C3542;
+                case 0xE01E1E2E: return 0xEA1B2028;
+                case 0xC0161626: return 0xD8171C23;
+                case 0x80555577: return 0x507FA8C9;
+                case 0x60333350: return 0x407FA8C9;
+                case 0x50226633: return 0x407FA8C9;
+                case 0x30226633: return 0x307FA8C9;
+                case 0xA0000000: return 0x40000000;
+                case 0x80000000: return 0x30000000;
+                case 0x60000000: return 0x20000000;
+                case 0x40000000: return 0x207FA8C9;
+                case 0x60333333: return 0x407FA8C9;
+                case 0xFFFFFF: return 0xFFE6EDF5;
+                case 0xF0F0F0: return 0xFFE6EDF5;
+                case 0xAAAAAA: return 0xFFB6C2D0;
+                case 0xFFAAAAAA: return 0xFFB6C2D0;
+                case 0x888888: return 0xFF8593A3;
+                case 0xCCCCCC: return 0xFFCFDAE6;
+                case 0xBBBBBB: return 0xFFB6C2D0;
+                case 0x777777: return 0xFF8593A3;
+                case 0x999999: return 0xFF8593A3;
+                case 0x666666: return 0xFF8593A3;
+                case 0x888899: return 0xFF8593A3;
+                case 0xFF555555: return 0xFF303845;
+                case 0x555555: return 0xFF303845;
+                case 0xFFE0A040: return 0xFF7FA8C9;
+                case 0xFFFF55: return 0xFF7FA8C9;
+                case 0xFFD700: return 0xFF7FA8C9;
+                case 0xFF55FF55: return 0xFF7FA8C9;
+                case 0x55FF55: return 0xFF7FA8C9;
+                case 0xFF5555: return 0xFFD96B6B;
+                case 0xCC6666: return 0xFFD96B6B;
+                case 0xFF88CCFF: return 0xFF9BB7C9;
+                case 0x55FFFF: return 0xFF7FB8B0;
+                case 0xFF6A6A8A: return 0xFF303845;
+                default: result = dark;
+            }
+            if ((result & 0xFF000000) == 0) result |= 0xFF000000;
+            return result;
         }
         int result;
         switch (dark) {

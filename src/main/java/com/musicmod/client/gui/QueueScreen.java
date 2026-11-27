@@ -10,7 +10,6 @@ import com.musicmod.network.packet.C2SMusicActionPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
@@ -66,8 +65,9 @@ public class QueueScreen extends Screen {
     protected void init() {
         this.font = ModFonts.get();
         NetworkHandler.sendToServer(new C2SRequestListPacket());
-        this.addRenderableWidget(Button.builder(Component.literal(Theme.tr("关闭")), b -> onClose())
-                .bounds(this.width / 2 - 50, this.height - 28, 100, 20).build());
+        int closeW = 72;
+        this.addRenderableWidget(new CardButton((this.width - closeW) / 2, panelY() + panelH() + 8,
+                closeW, 20, Component.literal(Theme.tr("关闭")), b -> onClose()));
     }
 
     @Override
@@ -77,7 +77,7 @@ public class QueueScreen extends Screen {
         int x = panelX(), y = panelY(), w = panelW(), h = panelH();
         int cx = x + w / 2;
 
-        UiText.centered(g, font, Theme.tr("§e播放队列"), cx, 8, Theme.c(0xFFFFFF));
+        UiText.centered(g, font, Theme.tr("播放队列"), cx, 8, Theme.nowPlayingText());
 
         List<String> queue = ClientMusicManager.getInstance().getLastQueue();
         String current = ClientMusicManager.getInstance().getCurrentSong();
@@ -140,10 +140,11 @@ public class QueueScreen extends Screen {
                 }
                 String color = active ? "" : Theme.isLight() ? "§0" : "§f";
                 String prefix = (idx + 1) + ". ";
-                int maxTitleW = Math.max(20, w - 24 - font.width(prefix));
+                int maxTitleW = Math.max(20, w - 44 - font.width(prefix));
                 String title = truncate(font, tags.displayTitle(song), maxTitleW);
                 int textColor = active ? Theme.nowPlayingText() : Theme.c(0xFFFFFF);
                 g.drawString(font, color + prefix + title, x + 8, rowY + 4, textColor, false);
+                g.drawString(font, "-", x + w - 18, rowY + 4, Theme.rowMuted(), false);
             }
             if (maxScroll > 0) {
                 int barX = x + w - 5;
@@ -208,6 +209,13 @@ public class QueueScreen extends Screen {
                 List<String> queue = ClientMusicManager.getInstance().getLastQueue();
                 int base = displayOffset();
                 int displayIdx = scroll + row;
+                if (mouseX >= x + w - 26 && mouseX <= x + w - 8
+                        && displayIdx >= 0 && base + displayIdx < queue.size()) {
+                    String song = queue.get(base + displayIdx);
+                    NetworkHandler.sendToServer(new C2SMusicActionPacket(
+                            C2SMusicActionPacket.ACTION_QUEUE_REMOVE, song));
+                    return true;
+                }
                 selectedIndex = displayIdx;
                 long now = System.currentTimeMillis();
                 if (lastClickRow == displayIdx && now - lastClickTime < 350

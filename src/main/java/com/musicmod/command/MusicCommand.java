@@ -309,8 +309,7 @@ public class MusicCommand {
         CommandSourceStack source = context.getSource();
         MusicServerManager mgr = MusicServerManager.getInstance();
         com.musicmod.PlayMode mode = mgr.cyclePlayMode();
-        source.sendSuccess(() -> Component.literal(
-                Lang.tr("§6♪ 播放模式: ") + mode.getSymbol() + " §a" + mode.getDisplayName()), true);
+        // 由服务器统一广播给全服，命令本身不再额外提示执行者。
         return 1;
     }
 

@@ -56,6 +56,8 @@ public final class AudioTagWriter {
                 set(tag, FieldKey.ALBUM, data.album);
                 set(tag, FieldKey.LYRICS, data.lyrics);
             }
+            // 先移除旧封面，避免多次编辑后同一个文件里堆叠多张 APIC/封面帧。
+            try { tag.deleteArtworkField(); } catch (Throwable ignored) {}
             boolean coverWritten = false;
             if (data.hasCover()) {
                 try {
@@ -81,7 +83,12 @@ public final class AudioTagWriter {
                 writeLrcSidecar(file, data.lyrics);
                 sidecar = true;
             }
-            if (clearAll) deleteSidecars(file);
+            if (clearAll) {
+                deleteSidecars(file);
+            } else if (!data.hasCover()) {
+                // 只清除封面时，配套封面也一并删掉，避免再次读取时又显示旧封面。
+                try { Files.deleteIfExists(new File(stripExt(file) + ".cover.jpg").toPath()); } catch (IOException ignored) {}
+            }
             String msg = "标签已写入: " + file.getName();
             if (sidecar) msg += "（封面/歌词已写入同名配套文件）";
             return new Result(true, msg, sidecar);

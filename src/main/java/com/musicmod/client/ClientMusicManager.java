@@ -20,6 +20,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -30,7 +32,14 @@ public class ClientMusicManager {
     private static final ClientMusicManager INSTANCE = new ClientMusicManager();
 
     private final AudioEngine audioEngine;
+    private final ExecutorService playbackExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "MusicMod-Play");
+        t.setDaemon(true);
+        return t;
+    });
+    private final AtomicInteger playbackGeneration = new AtomicInteger();
     private File cacheDir;
+    private File currentPlaybackFile;
 
     // 当前播放信息
     private String pendingSongName = "";
@@ -180,7 +189,9 @@ public class ClientMusicManager {
         } else {
             // 缓存未命中，请求文件数据
             MusicMod.LOGGER.info("Cache miss for song: {}, requesting from server", songName);
-            audioEngine.stop();
+            // 不在客户端主线程 stop：AudioEngine.stop() 会关闭音频线并 join 播放线程，
+            // 最坏阻塞 500ms；连续切歌会直接冻结渲染线程。旧音频由后台 MusicMod-Play
+            // 线程里的下一次 play() 负责停止。
             NetworkHandler.sendToServer(new C2SRequestSongDataPacket(songName, offsetMs));
             showChatMessage(com.musicmod.i18n.Lang.tr("§6♪ §e正在下载歌曲: §f") + songName + com.musicmod.i18n.Lang.tr("§e..."));
         }
@@ -194,9 +205,15 @@ public class ClientMusicManager {
         return !receiveStates.isEmpty();
     }
 
+    public void stopAsync() {
+        playbackGeneration.incrementAndGet();
+        playbackExecutor.execute(audioEngine::stop);
+    }
+
     public void onStop() {
         cancelIncompleteTransfers();
-        audioEngine.stop();
+        playbackGeneration.incrementAndGet();
+        playbackExecutor.execute(audioEngine::stop);
         pendingSongName = "";
         pendingFileName = "";
         pendingMd5 = "";
@@ -260,7 +277,7 @@ public class ClientMusicManager {
 
         // 预缓冲足够且尚未开始播放 → 立即开始边下边播。
         // M4A/MP4/AAC 需要随机访问，等下载完成后从文件播放。
-        if (!isStreamUnsupportedFormat(fileName)
+        if (!isStreamUnsupportedFormat(fileName) && songName.equals(pendingSongName)
                 && !state.playbackStarted && state.bufferStream.getBufferedBytes() >= PREBUFFER_BYTES) {
             state.playbackStarted = true;
             playFromStream(state.bufferStream, songName, fileName, state.latestServerElapsedMs);
@@ -322,25 +339,25 @@ public class ClientMusicManager {
     }
 
     private void playFromCache(File file, String songName, long offsetMs) {
-        // 在主线程外执行播放（音频播放是阻塞操作）
-        Thread playThread = new Thread(() -> {
+        this.currentPlaybackFile = file;
+        int gen = playbackGeneration.incrementAndGet();
+        playbackExecutor.execute(() -> {
+            if (gen != playbackGeneration.get()) return;
             audioEngine.play(file, songName, offsetMs, MusicModConfig.getClientVolume());
             syncStreamDurationToTags(songName);
-        }, "MusicMod-Play");
-        playThread.setDaemon(true);
-        playThread.start();
+        });
     }
 
     /**
      * 从内存缓冲流播放（边下边播：数据不足时解码线程阻塞等待网络数据）
      */
     private void playFromStream(InputStream stream, String songName, String fileName, long offsetMs) {
-        Thread playThread = new Thread(() -> {
+        int gen = playbackGeneration.incrementAndGet();
+        playbackExecutor.execute(() -> {
+            if (gen != playbackGeneration.get()) return;
             audioEngine.play(stream, songName, fileName, offsetMs, MusicModConfig.getClientVolume());
             syncStreamDurationToTags(songName);
-        }, "MusicMod-Play");
-        playThread.setDaemon(true);
-        playThread.start();
+        });
     }
 
     /**
@@ -447,6 +464,27 @@ public class ClientMusicManager {
         n = n.replace(':', '_').replace('*', '_').replace('?', '_')
                 .replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_');
         return n.isBlank() ? "song.bin" : n;
+    }
+
+    public File getCurrentPlaybackFile() {
+        return currentPlaybackFile;
+    }
+
+    /**
+     * Best-effort lookup of a cached song file by its display name.
+     * Used by the Windows media card to recover the original cover art.
+     */
+    public File findCachedFile(String songName) {
+        if (cacheDir == null || songName == null || songName.isBlank()) return null;
+        String target = sanitizeCacheName(songName);
+        File exact = new File(cacheDir, target);
+        if (exact.isFile()) return exact;
+        File[] files = cacheDir.listFiles();
+        if (files == null) return null;
+        for (File f : files) {
+            if (f.isFile() && (f.getName().equals(target) || f.getName().endsWith("_" + target))) return f;
+        }
+        return null;
     }
 
     private File getCachedFile(String md5, String fileName) {

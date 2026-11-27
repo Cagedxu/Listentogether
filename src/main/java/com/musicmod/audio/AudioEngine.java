@@ -430,6 +430,11 @@ public class AudioEngine {
         underwaterFilter.setCaveEcho(cave);
     }
 
+    /** 下界/末地回音：只影响本机播放。 */
+    public void setDimensionEcho(boolean echo) {
+        underwaterFilter.setDimensionEcho(echo);
+    }
+
     public void setPaused(boolean p) {
         if (line != null && playing) {
             if (p && !paused) {

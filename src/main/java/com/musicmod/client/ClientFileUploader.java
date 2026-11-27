@@ -1,5 +1,6 @@
 package com.musicmod.client;
 
+import com.musicmod.MusicMod;
 import com.musicmod.i18n.Lang;
 
 import com.musicmod.audio.MusicLibrary;
@@ -147,7 +148,7 @@ public class ClientFileUploader {
     }
 
     /** 通过 JNA 调用 Win32，把原生文件对话框强制拉到前台。 */
-    private static void forceForeground(String title) {
+    public static void forceForeground(String title) {
         try {
             Class<?> user32 = Class.forName("com.sun.jna.platform.win32.User32");
             Object instance = user32.getField("INSTANCE").get(null);
@@ -202,8 +203,11 @@ public class ClientFileUploader {
                 return;
             }
         }
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> prepareUpload(next));
+        // 上传不能在客户端主线程执行：读取文件、限速 sleep 和发送分块都可能阻塞，
+        // 主线程被占住时客户端无法及时回应服务端 keepalive，30 秒后会被判定 Timed out。
+        Thread uploadThread = new Thread(() -> prepareUpload(next), "musicmod-upload");
+        uploadThread.setDaemon(true);
+        uploadThread.start();
     }
 
     /** 五项标签缺失时先询问：直接上传，或编辑标签后上传。 */
@@ -325,6 +329,10 @@ public class ClientFileUploader {
                 NetworkHandler.sendToServer(new C2SUploadSongPacket(
                         uploadName, i, totalChunks, chunk, lastChunk));
                 sentBytes += chunk.length;
+                if (i % 32 == 0 || lastChunk) {
+                    MusicMod.LOGGER.info("Uploading '{}': chunk {}/{} ({} bytes)",
+                            uploadName, i + 1, totalChunks, sentBytes);
+                }
 
                 // 可选限速：默认 2 MB/s，避免上传把服务器 tick 和带宽占满
                 if (MusicModConfig.isTransferLimitEnabled()) {

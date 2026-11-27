@@ -25,6 +25,8 @@ public class C2SMusicActionPacket {
     public static final byte ACTION_PLAY_MODE = 9; // 1.7.0：切换播放模式
     public static final byte ACTION_PLAY_WITH_QUEUE = 10; // 0.14.0：带播放队列播放（歌单/歌手/专辑上下文）
     public static final byte ACTION_SET_EMPTY_BEHAVIOR = 11; // 0.25.0：OP 设置服务器无人时行为
+    public static final byte ACTION_QUEUE_NEXT = 12;   // 把歌曲插入播放队列的下一首
+    public static final byte ACTION_QUEUE_REMOVE = 13; // 从播放队列移除歌曲
 
     private final byte action;
     private final String songName; // ACTION_PLAY / ACTION_PLAY_WITH_QUEUE 使用
@@ -113,6 +115,12 @@ public class C2SMusicActionPacket {
                     break;
                 case ACTION_SEEK:
                     if (isOp && seekMs >= 0) mgr.seekTo(seekMs);
+                    break;
+                case ACTION_QUEUE_NEXT:
+                    if (isOp && !songName.isEmpty()) mgr.insertNextInQueue(songName);
+                    break;
+                case ACTION_QUEUE_REMOVE:
+                    if (isOp && !songName.isEmpty()) mgr.removeFromQueue(songName);
                     break;
                 case ACTION_SET_EMPTY_BEHAVIOR:
                     if (isOp && !songName.isEmpty()) {

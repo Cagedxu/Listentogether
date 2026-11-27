@@ -65,6 +65,10 @@ configurations {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
+    // JNA is provided by Forge/Minecraft at runtime; only needed to compile the SMTC bridge.
+    compileOnly "net.java.dev.jna:jna:5.13.0"
+    compileOnly "net.java.dev.jna:jna-platform:5.13.0"
+
     // 闂婃娊顣剁憴锝囩垳鎼?- 閺€顖涘瘮 MP3, OGG Vorbis, WAV, AIFF, AU 缁涘鐗稿?
     // 娴肩娀鈧帊绶风挧?jlayer (MP3鐟欙絿鐖? 閸?jorbis (Vorbis鐟欙絿鐖? 娴兼矮绔撮獮璺虹穿閸?
     audioLibs("com.googlecode.soundlibs:tritonus-share:0.3.7.4") {

@@ -45,6 +45,8 @@ public class MusicServerManager {
     private boolean pausedByEmptyServer = false;  // 因服务器无人而暂停（0.17.0）
     private long playStartTime = 0;            // 开始播放的系统时间戳
     private long pausedAtMs = 0;               // 暂停时的播放位置（毫秒）
+    private long pendingSeekMs = -1;
+    private long pendingSeekAtMs = 0;
     private long totalPausedDuration = 0;      // 累计暂停时长（毫秒）
 
     // 播放队列
@@ -98,8 +100,9 @@ public class MusicServerManager {
         this.playlistLibrary = new PlaylistLibrary(playlistFile);
         this.playlistLibrary.load();
 
-        // 从配置读取默认播放模式
-        this.playMode = MusicModConfig.getServerDefaultPlayMode();
+        // 读取存档内上次的播放模式；首次启动时回退到服务器默认值
+        this.playMode = PlayModeData.get(server)
+                .getMode(MusicModConfig.getServerDefaultPlayMode());
 
         // 注册玩家加入事件监听
         com.musicmod.server.ServerEventHandler.register();
@@ -176,6 +179,8 @@ public class MusicServerManager {
         }
         if (songFile == null) return false;
 
+        pendingSeekMs = -1;
+        pendingSeekAtMs = 0L;
         String songName = getSongDisplayName(songFile);
         currentSong = songName;
         currentFileName = songFile.getName();
@@ -263,6 +268,8 @@ public class MusicServerManager {
         playing = false;
         paused = false;
         pausedByEmptyServer = false;
+        pendingSeekMs = -1;
+        pendingSeekAtMs = 0L;
         currentSong = "";
         currentFileName = "";
         currentMd5 = "";
@@ -334,6 +341,16 @@ public class MusicServerManager {
      */
     public boolean seekTo(long seekMs) {
         if (!playing || currentSong.isEmpty()) return false;
+        // 拖动进度条会连续发很多 seek；每个 seek 都让全服客户端重开音频流。
+        // 用 150ms 节流：拖动过程中也持续跟随，但不会把每个像素都变成一次重开。
+        pendingSeekMs = seekMs;
+        if (pendingSeekAtMs == 0L) {
+            pendingSeekAtMs = System.currentTimeMillis() + 150L;
+        }
+        return true;
+    }
+
+    private void applySeek(long seekMs) {
         paused = false;
         pausedByEmptyServer = false;
         pausedAtMs = 0;
@@ -343,7 +360,6 @@ public class MusicServerManager {
         NetworkHandler.sendToAllPlayers(new S2CPlayPacket(
                 currentSong, currentFileName, currentMd5, currentFileSize, seekMs));
         broadcastMessage(Lang.tr("§6♪ §e已跳转至 §f") + formatSeekTime(seekMs));
-        return true;
     }
 
     private String formatSeekTime(long ms) {
@@ -397,7 +413,15 @@ public class MusicServerManager {
      * 通过对比已播放时长与标签时长判断结束，加 1 秒容差避免标签估算误差导致提前切歌。
      */
     public void tick() {
-        if (!playing || paused || currentSong.isEmpty() || musicLibrary == null) return;
+        if (!playing || currentSong.isEmpty() || musicLibrary == null) return;
+        if (pendingSeekMs >= 0 && pendingSeekAtMs > 0L
+                && System.currentTimeMillis() >= pendingSeekAtMs) {
+            long seekMs = pendingSeekMs;
+            pendingSeekMs = -1;
+            pendingSeekAtMs = 0L;
+            applySeek(seekMs);
+        }
+        if (paused) return;
         SongTags tags = musicLibrary.getTags(currentSong);
         if (tags.durationMs > 0 && getElapsedMs() >= tags.durationMs + 1000) {
             onSongFinished(currentSong);
@@ -445,6 +469,64 @@ public class MusicServerManager {
         baseQueue.add(song);
     }
 
+    /** 把歌曲插到当前播放歌曲的下一首；已存在时先移除旧位置，避免重复。 */
+    public boolean insertNextInQueue(String song) {
+        if (musicLibrary == null || song == null || song.isEmpty()) return false;
+        if (!musicLibrary.getSongNames().contains(song)) return false;
+        if (playQueue.isEmpty()) {
+            playQueue.addAll(musicLibrary.getSongNames());
+            baseQueue.addAll(musicLibrary.getSongNames());
+            updateQueuePosition(currentSong);
+        }
+        for (int i = playQueue.size() - 1; i >= 0; i--) {
+            if (playQueue.get(i).equalsIgnoreCase(song) && !song.equalsIgnoreCase(currentSong)) {
+                playQueue.remove(i);
+                if (i <= queueIndex) queueIndex--;
+            }
+        }
+        for (int i = baseQueue.size() - 1; i >= 0; i--) {
+            if (baseQueue.get(i).equalsIgnoreCase(song) && !song.equalsIgnoreCase(currentSong)) {
+                baseQueue.remove(i);
+            }
+        }
+        int insertAt = queueIndex >= 0 ? Math.min(queueIndex + 1, playQueue.size()) : playQueue.size();
+        playQueue.add(insertAt, song);
+        int baseCurrent = -1;
+        for (int i = 0; i < baseQueue.size(); i++) {
+            if (baseQueue.get(i).equalsIgnoreCase(currentSong)) { baseCurrent = i; break; }
+        }
+        baseQueue.add(baseCurrent >= 0 ? Math.min(baseCurrent + 1, baseQueue.size()) : baseQueue.size(), song);
+        broadcastSongLists();
+        return true;
+    }
+
+    /** 从播放队列移除歌曲；若移除的是当前歌曲，则自动跳到原队列中的下一首。 */
+    public boolean removeFromQueue(String song) {
+        if (song == null || song.isEmpty()) return false;
+        boolean removingCurrent = song.equalsIgnoreCase(currentSong);
+        int oldIndex = queueIndex;
+        boolean removed = playQueue.removeIf(s -> s.equalsIgnoreCase(song));
+        removed |= baseQueue.removeIf(s -> s.equalsIgnoreCase(song));
+        if (!removed) return false;
+        if (removingCurrent) {
+            if (playQueue.isEmpty()) {
+                stopMusic();
+            } else {
+                queueIndex = oldIndex >= 0 ? Math.min(oldIndex - 1, playQueue.size() - 1) : -1;
+                playNext();
+            }
+        } else {
+            updateQueuePosition(currentSong);
+        }
+        broadcastSongLists();
+        return true;
+    }
+
+    private void broadcastSongLists() {
+        if (server == null) return;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) sendSongListToPlayer(player);
+    }
+
     public void clearQueue() {
         playQueue.clear();
         baseQueue.clear();
@@ -453,8 +535,10 @@ public class MusicServerManager {
 
     public void setPlayMode(PlayMode mode) {
         this.playMode = mode;
+        if (server != null) PlayModeData.get(server).setMode(mode);
         rebuildQueueForMode();
         broadcastPlayMode();
+        broadcastMessage(Lang.tr("§6♪ §e播放模式: §f") + playMode.getDisplayName());
     }
 
     public PlayMode getPlayMode() {
@@ -464,8 +548,10 @@ public class MusicServerManager {
     /** 循环切换播放模式 */
     public PlayMode cyclePlayMode() {
         this.playMode = playMode.next();
+        if (server != null) PlayModeData.get(server).setMode(this.playMode);
         rebuildQueueForMode();
         broadcastPlayMode();
+        broadcastMessage(Lang.tr("§6♪ §e播放模式: §f") + playMode.getDisplayName());
         return this.playMode;
     }
 

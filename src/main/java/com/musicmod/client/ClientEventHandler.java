@@ -5,7 +5,6 @@ import com.musicmod.api.RomajiSupport;
 
 import com.musicmod.MusicMod;
 import com.musicmod.client.gui.LyricsParser;
-import com.musicmod.client.gui.MusicPlayerScreen;
 import com.musicmod.config.MusicModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -39,13 +38,14 @@ public class ClientEventHandler {
     @SubscribeEvent
     public static void onClientPlayerLoggedOut(ClientPlayerNetworkEvent.LoggingOut event) {
         // 断开连接时停止播放并清理标签/封面/歌词缓存
-        ClientMusicManager.getInstance().getAudioEngine().stop();
+        ClientMusicManager.getInstance().stopAsync();
         ClientTagStore.getInstance().clear();
         ClientPlaylists.getInstance().clear();
         lyricsCacheSong = "";
         lyricsCacheText = null;
         lyricsCacheLines = null;
         WorldLyricsRenderer.reset();
+        SmtcController.shutdown();
         MusicMod.LOGGER.info(Lang.tr("一起听 client stopped playback on disconnect"));
     }
 
@@ -53,11 +53,13 @@ public class ClientEventHandler {
      * 按键监听：M 键打开播放器界面（按配置风格路由）
      */
     private static boolean fontThemeChecked = false;
+    private static int smtcTickCounter = 0;
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
+        VolumeKeyHook.start();
         if (!fontThemeChecked) {
             fontThemeChecked = true;
             if (!MusicModConfig.isFontThemeSynced()) {
@@ -68,28 +70,35 @@ public class ClientEventHandler {
             }
         }
         if (mc.player == null) return;
+        if (++smtcTickCounter >= 20) {
+            smtcTickCounter = 0;
+            SmtcController.tick();
+        }
         boolean underwater = com.musicmod.config.MusicModConfig.isUnderwaterSoundEnabled()
                 && mc.player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER);
         ClientMusicManager.getInstance().getAudioEngine().setUnderwater(underwater);
-        boolean cave = com.musicmod.config.MusicModConfig.isCaveEchoEnabled()
+        boolean netherOrEnd = mc.player.level().dimension() == net.minecraft.world.level.Level.NETHER
+                || mc.player.level().dimension() == net.minecraft.world.level.Level.END;
+        boolean cave = !netherOrEnd
+                && com.musicmod.config.MusicModConfig.isCaveEchoEnabled()
                 && mc.player.getY() < 62.0D
                 && !mc.player.level().canSeeSky(mc.player.blockPosition())
                 && mc.player.level().getBrightness(net.minecraft.world.level.LightLayer.SKY,
                         mc.player.blockPosition()) <= 0;
+        boolean dimensionEcho = netherOrEnd
+                && com.musicmod.config.MusicModConfig.isNetherEndEchoEnabled();
         ClientMusicManager.getInstance().getAudioEngine().setCaveEcho(cave);
+        ClientMusicManager.getInstance().getAudioEngine().setDimensionEcho(dimensionEcho);
         // 单人游戏打开任意 GUI 时集成服务器会暂停，音乐服务端 tick 也停止；
         // 这里在客户端 tick 中补 tick，保证歌曲播完后仍会自动下一首。
         if (mc.isPaused() && mc.getSingleplayerServer() != null) {
             com.musicmod.server.MusicServerManager.getInstance().tick();
         }
         while (ModKeyBindings.OPEN_PLAYER.consumeClick()) {
-            if (mc.screen instanceof com.musicmod.client.gui.MusicAppScreen
-                    || mc.screen instanceof MusicPlayerScreen) {
+            if (mc.screen instanceof com.musicmod.client.gui.MusicAppScreen) {
                 mc.setScreen(null);
             } else if (mc.screen == null) {
-                mc.setScreen(MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.CLASSIC
-                        ? new MusicPlayerScreen()
-                        : new com.musicmod.client.gui.MusicAppScreen());
+                mc.setScreen(new com.musicmod.client.gui.MusicAppScreen());
             }
         }
         // N 键循环切换播放模式（需 OP，服务端校验）并提示当前模式
@@ -98,9 +107,6 @@ public class ClientEventHandler {
                     new com.musicmod.network.packet.C2SMusicActionPacket(
                             com.musicmod.network.packet.C2SMusicActionPacket.ACTION_PLAY_MODE, "");
             com.musicmod.network.NetworkHandler.sendToServer(pkt);
-            com.musicmod.PlayMode next = ClientMusicManager.getInstance().getLastPlayMode().next();
-            mc.player.displayClientMessage(Component.literal(
-                    Lang.tr("§6♪ §e播放模式: ") + "§f" + next.getDisplayName()), true);
         }
         // 方向键：上下切歌，左右快退/快进（无界面时生效）
         if (mc.screen == null) {
@@ -142,6 +148,9 @@ public class ClientEventHandler {
     private static String lyricsCacheSong = "";
     private static String lyricsCacheText = null;
     private static List<LyricsParser.Line> lyricsCacheLines = null;
+    /** HUD 卡片歌词换句时的上滚/淡入状态 */
+    private static String hudLyricAnimText = "";
+    private static long hudLyricAnimStartNs = 0L;
 
     /**
      * 0.29.0：根据配置计算 HUD 显示位置（左上/右上/左下/右下/物品栏上方/顶部中央）。
@@ -201,9 +210,7 @@ public class ClientEventHandler {
         GuiGraphics guiGraphics = event.getGuiGraphics();
         // 限制 HUD 宽度不超过屏幕的 60%，超长截断
         int maxWidth = (int) (mc.getWindow().getGuiScaledWidth() * 0.6);
-        // 音符图标（仅歌词行模式且配置开启时在左侧独立绘制，原文/译文从同一位置开始保证对齐）
-        boolean showNote = isLyricsLine && MusicModConfig.getShowHudNoteIcon();
-        int noteW = showNote ? mc.font.width("♪") + 5 : 0;
+        int noteW = 0;
         String drawn = displayText;
         if (mc.font.width(drawn) > maxWidth) {
             while (!drawn.isEmpty() && mc.font.width(drawn + "…") > maxWidth) {
@@ -255,11 +262,7 @@ public class ClientEventHandler {
         int x = pos[0];
         int y = pos[1];
         guiGraphics.fill(x, y, x + width, y + height, 0x80000000);
-        if (showNote) {
-            // 音符图标始终与第一行（原文行）对齐
-            guiGraphics.drawString(mc.font, "§b♪", x + 4, y + 3, 0xFFFFFF);
-        }
-        int textX = x + 4 + noteW;
+        int textX = x + 4;
         if (transAfter) {
             // 翻译在原文后方同一行
             if (MusicModConfig.getHudLyricsAlign() == MusicModConfig.HudLyricsAlign.CENTER) {
@@ -354,10 +357,24 @@ public class ClientEventHandler {
         int titleY = y + 4;
         g.drawString(font, drawnTitleLine, textX, titleY, 0xFFFFFF);
         if (drawnLyrics != null) {
-            g.drawString(font, drawnLyrics, textX, y + 20, 0xFFFFFF);
-            if (drawnTrans != null) {
-                g.drawString(font, drawnTrans, textX, y + 31, 0xAAAAAA);
+            long now = System.nanoTime();
+            if (!drawnLyrics.equals(hudLyricAnimText)) {
+                hudLyricAnimText = drawnLyrics;
+                hudLyricAnimStartNs = now;
             }
+            float t = Math.min(1.0f, (now - hudLyricAnimStartNs) / 220_000_000.0f);
+            int shift = Math.round((1.0f - t) * 5.0f);
+            int alpha = Math.max(0, Math.min(255, (int) (t * 255)));
+            int transAlpha = Math.max(0, Math.min(170, (int) (t * 170)));
+            g.pose().pushPose();
+            g.pose().translate(0.0D, shift, 0.0D);
+            g.drawString(font, drawnLyrics, textX, y + 20, (alpha << 24) | 0xFFFFFF);
+            if (drawnTrans != null) {
+                g.drawString(font, drawnTrans, textX, y + 31, (transAlpha << 24) | 0xAAAAAA);
+            }
+            g.pose().popPose();
+        } else {
+            hudLyricAnimText = "";
         }
     }
 
@@ -374,20 +391,19 @@ public class ClientEventHandler {
     private static void drawCoverScaledHud(GuiGraphics g, ResourceLocation cover, int[] srcSize,
                                             int dx, int dy, int dSize) {
         int srcW = srcSize[0], srcH = srcSize[1];
-        float scale = (float) dSize / Math.min(srcW, srcH);
-        int drawW = (int) (srcW * scale);
-        int drawH = (int) (srcH * scale);
-        int offsetX = dx - (drawW - dSize) / 2;
-        int offsetY = dy - (drawH - dSize) / 2;
-        g.blit(cover, offsetX, offsetY, 0, 0, dSize, dSize, drawW, drawH);
+        // 居中裁剪：从源图中心取 min(srcW, srcH) 的方形区域，再缩放到 dSize。
+        // 旧实现只改 offset 且 u/v 仍为 0，实际裁的是左上角，非方形封面会错位。
+        int crop = Math.min(srcW, srcH);
+        int u = (srcW - crop) / 2;
+        int v = (srcH - crop) / 2;
+        g.blit(cover, dx, dy, dSize, dSize, u, v, crop, crop, srcW, srcH);
     }
 
-    /** 歌名显示文本（含播放/暂停状态图标） */
+    /** 歌名显示文本 */
     private static String getSongNameText(ClientMusicManager manager) {
         String song = manager.getCurrentSong();
-        String status = manager.isPaused() ? "⏸" : "▶";
         String title = ClientTagStore.getInstance().displayTitle(song);
-        return "§6♪ " + status + " §f" + title;
+        return "§f" + title;
     }
 
     /**

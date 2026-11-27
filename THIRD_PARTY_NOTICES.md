@@ -36,6 +36,14 @@ Forge Jar-in-Jar 下的 split-package 冲突），如果你需要修改或替换
 - 没有附带 Minecraft / Mojang 的材质、音效或其他资产。
 - 没有附带 Forge 或其他非音频依赖；它们由运行环境提供。
 
+## Windows 系统媒体控制（SMTC）
+
+Windows 媒体面板支持基于 [JavaMediaTransportControls (JMTC)](https://github.com/Selemba1000/JavaMediaTransportControls)（MIT License，Copyright (c) 2023 Selemba）：
+- `src/main/java/com/musicmod/client/smtc/` 中为适配 Java 17 而重新打包的 JMTC 源码；
+- `src/main/resources/win32-x86-64/SMTCAdapter.dll` 与 `win32-x86/SMTCAdapter.dll` 为其预编译原生桥接库。
+
+完整 MIT 许可证文本见 `LICENSES/JMTC-MIT.txt`。
+
 ## 3D 世界歌词
 
 3D 世界歌词的交互方式与视觉设计参考了 [DangoMusic](https://github.com/Sorihiko/DangoMusic)（GPL-3.0）：

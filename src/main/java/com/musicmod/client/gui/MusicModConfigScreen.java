@@ -34,7 +34,6 @@ public class MusicModConfigScreen extends Screen {
 
     private final Screen parentScreen;
     private boolean singleplayer;
-    private MusicModConfig.UiStyle initialStyle; // 打开时的界面风格，用于关闭时判断是否需要切换
 
     private static final int BTN_W = 200;
     private static final int BTN_H = 20;
@@ -44,11 +43,9 @@ public class MusicModConfigScreen extends Screen {
     private static final int LABEL_SPACE = 14; // 分区标签行高（含与控件的间距）
 
     // 客户端配置控件
-    private Button styleBtn;
-    private VolumeSlider volumeSlider;
-    private Button hudBtn, translationBtn, noteIconBtn, lyricsAlignBtn;
+    private Button hudBtn, translationBtn, lyricsAlignBtn;
     private Button hudTransPosBtn, detailTransPosBtn, barTransPosBtn;
-    private Button queueShowPlayedBtn, hudPosBtn, lyricsClickModeBtn, detailDblClickPlayBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
+    private Button queueShowPlayedBtn, hudPosBtn, lyricsClickModeBtn, themeBtn, pauseSingleplayerBtn, transferLimitBtn;
     
 
     // 服务器配置控件（仅单人游戏）
@@ -72,8 +69,8 @@ public class MusicModConfigScreen extends Screen {
 
     /** 内容总高度（像素，不含 CONTENT_TOP 偏移） */
     private int contentHeight() {
-        // 客户端区：标签 + 14 控件
-        int h = LABEL_SPACE + 16 * ITEM_SPACING;
+        // 客户端区：标签 + 13 控件
+        int h = LABEL_SPACE + 13 * ITEM_SPACING;
         // 服务器标签
         h += LABEL_SPACE;
         if (singleplayer) {
@@ -96,25 +93,11 @@ public class MusicModConfigScreen extends Screen {
         super.init();
         this.font = ModFonts.get();
         singleplayer = Minecraft.getInstance().getSingleplayerServer() != null;
-        initialStyle = MusicModConfig.getUiStyle();
         scrollOffset = 0;
 
         int leftX = this.width / 2 - BTN_W / 2;
 
         // ---- 客户端配置 ----
-        styleBtn = Button.builder(styleBtnText(), btn -> {
-            MusicModConfig.UiStyle next = MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                    ? MusicModConfig.UiStyle.CLASSIC : MusicModConfig.UiStyle.PLAYER;
-            MusicModConfig.setUiStyle(next);
-            MusicModConfig.saveClientConfig();
-            btn.setMessage(styleBtnText());
-        }).bounds(leftX, 0, BTN_W, BTN_H).build();
-        this.addRenderableWidget(styleBtn);
-
-        volumeSlider = new VolumeSlider(leftX, 0, BTN_W, BTN_H,
-                MusicModConfig.getClientVolume());
-        this.addRenderableWidget(volumeSlider);
-
         hudBtn = Button.builder(hudBtnText(), btn -> {
             MusicModConfig.cycleHudMode();
             MusicModConfig.saveClientConfig();
@@ -127,13 +110,6 @@ public class MusicModConfigScreen extends Screen {
             btn.setMessage(translationBtnText());
         }).bounds(leftX, 0, BTN_W, BTN_H).build();
         this.addRenderableWidget(translationBtn);
-
-        noteIconBtn = Button.builder(noteIconBtnText(), btn -> {
-            MusicModConfig.setShowHudNoteIcon(!MusicModConfig.getShowHudNoteIcon());
-            MusicModConfig.saveClientConfig();
-            btn.setMessage(noteIconBtnText());
-        }).bounds(leftX, 0, BTN_W, BTN_H).build();
-        this.addRenderableWidget(noteIconBtn);
 
         lyricsAlignBtn = Button.builder(lyricsAlignBtnText(), btn -> {
             MusicModConfig.HudLyricsAlign next = MusicModConfig.getHudLyricsAlign()
@@ -202,13 +178,6 @@ public class MusicModConfigScreen extends Screen {
             btn.setMessage(lyricsClickModeBtnText());
         }).bounds(leftX, 0, BTN_W, BTN_H).build();
         this.addRenderableWidget(lyricsClickModeBtn);
-
-        detailDblClickPlayBtn = Button.builder(detailDblClickPlayBtnText(), btn -> {
-            MusicModConfig.setDetailDblClickPlay(!MusicModConfig.getDetailDblClickPlay());
-            MusicModConfig.saveClientConfig();
-            btn.setMessage(detailDblClickPlayBtnText());
-        }).bounds(leftX, 0, BTN_W, BTN_H).build();
-        this.addRenderableWidget(detailDblClickPlayBtn);
 
         themeBtn = Button.builder(themeBtnText(), btn -> {
             MusicModConfig.UiTheme next = MusicModConfig.getUiTheme() == MusicModConfig.UiTheme.DARK
@@ -326,11 +295,8 @@ public class MusicModConfigScreen extends Screen {
 
         // 定位所有控件（客户端标签占 LABEL_SPACE，控件从 LABEL_SPACE 开始）
         int y = LABEL_SPACE;
-        positionWidget(styleBtn, y); y += ITEM_SPACING;
-        positionWidget(volumeSlider, y); y += ITEM_SPACING;
         positionWidget(hudBtn, y); y += ITEM_SPACING;
         positionWidget(translationBtn, y); y += ITEM_SPACING;
-        positionWidget(noteIconBtn, y); y += ITEM_SPACING;
         positionWidget(lyricsAlignBtn, y); y += ITEM_SPACING;
         positionWidget(hudTransPosBtn, y); y += ITEM_SPACING;
         positionWidget(detailTransPosBtn, y); y += ITEM_SPACING;
@@ -338,13 +304,11 @@ public class MusicModConfigScreen extends Screen {
         positionWidget(queueShowPlayedBtn, y); y += ITEM_SPACING;
         positionWidget(hudPosBtn, y); y += ITEM_SPACING;
         positionWidget(lyricsClickModeBtn, y); y += ITEM_SPACING;
-        positionWidget(detailDblClickPlayBtn, y); y += ITEM_SPACING;
         positionWidget(themeBtn, y); y += ITEM_SPACING;
         positionWidget(pauseSingleplayerBtn, y); y += ITEM_SPACING;
         positionWidget(transferLimitBtn, y); y += ITEM_SPACING;
         if (pauseSingleplayerBtn != null) pauseSingleplayerBtn.visible &= singleplayer;
-        // 精简模式不提供主题功能
-        if (themeBtn != null) themeBtn.visible &= MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER;
+
         // 服务器配置区（先留出标签空间）
         y += LABEL_SPACE;
         if (singleplayer) {
@@ -369,15 +333,15 @@ public class MusicModConfigScreen extends Screen {
         // 客户端配置标签（baseY=0，控件从 LABEL_SPACE 开始，间距充足不重叠）
         int clientLabelY = CONTENT_TOP - scrollOffset;
         if (clientLabelY >= TITLE_Y + 10) {
-            UiText.centered(guiGraphics, this.font, Lang.tr("§e—— 客户端配置 ——"), cx, clientLabelY, 0xFFFFFF);
+            UiText.centered(guiGraphics, this.font, Lang.tr("—— 客户端配置 ——"), cx, clientLabelY, 0xFFFFFF);
         }
 
         // 服务器配置标签（在服务器区控件上方 LABEL_SPACE 处）
-        int serverLabelBaseY = LABEL_SPACE + 16 * ITEM_SPACING; // 客户端标签+16 个控件之后
+        int serverLabelBaseY = LABEL_SPACE + 13 * ITEM_SPACING; // 客户端标签+13 个控件之后
         int serverLabelY = CONTENT_TOP + serverLabelBaseY - scrollOffset;
         if (serverLabelY >= TITLE_Y + 10 && serverLabelY < CONTENT_TOP + visibleHeight()) {
-            String text = singleplayer ? Lang.tr("§e—— 单人游戏配置 ——")
-                    : Lang.tr("§e—— 服务器配置 ——");
+            String text = singleplayer ? Lang.tr("—— 单人游戏配置 ——")
+                    : Lang.tr("—— 服务器配置 ——");
             UiText.centered(guiGraphics, this.font, text, cx, serverLabelY, 0xFFFFFF);
         }
 
@@ -439,16 +403,7 @@ public class MusicModConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        // 界面风格被切换时，返回直接打开新风格的界面
-        MusicModConfig.UiStyle cur = MusicModConfig.getUiStyle();
-        if (cur != initialStyle) {
-            Minecraft.getInstance().setScreen(
-                    cur == MusicModConfig.UiStyle.PLAYER
-                            ? new MusicAppScreen()
-                            : new MusicPlayerScreen());
-        } else {
-            Minecraft.getInstance().setScreen(parentScreen);
-        }
+        Minecraft.getInstance().setScreen(parentScreen);
     }
 
     // ==================== 工具方法 ====================
@@ -466,25 +421,16 @@ public class MusicModConfigScreen extends Screen {
 
     // ==================== 按钮文案 ====================
 
-    private Component styleBtnText() {
-        return Component.literal(Lang.tr("界面风格: ") + (MusicModConfig.getUiStyle() == MusicModConfig.UiStyle.PLAYER
-                ? Lang.tr("播放器风格") : Lang.tr("精简模式")));
-    }
-
     private Component hudBtnText() {
         MusicModConfig.HudMode mode = MusicModConfig.getHudMode();
         String modeText = mode == MusicModConfig.HudMode.LYRICS ? Lang.tr("§b歌词")
-                : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("§a歌名")
+                : mode == MusicModConfig.HudMode.SONG_NAME ? Lang.tr("歌名")
                 : mode == MusicModConfig.HudMode.CARD ? Lang.tr("§d卡片") : Lang.tr("§c关闭");
         return Component.literal(Lang.tr("HUD 显示: ") + modeText);
     }
 
     private Component translationBtnText() {
         return Component.literal(Lang.tr("歌词显示: ") + Lang.tr(com.musicmod.client.LyricsDisplayHelper.label()));
-    }
-
-    private Component noteIconBtnText() {
-        return Component.literal(Lang.tr("音符图标: ") + (MusicModConfig.getShowHudNoteIcon() ? Lang.tr("§a显示") : Lang.tr("§7隐藏")));
     }
 
     private Component lyricsAlignBtnText() {
@@ -522,21 +468,16 @@ public class MusicModConfigScreen extends Screen {
                 == MusicModConfig.LyricsClickMode.SINGLE ? Lang.tr("单击") : Lang.tr("双击")));
     }
 
-    private Component detailDblClickPlayBtnText() {
-        return Component.literal(Lang.tr("详情双击播放: ") + (MusicModConfig.getDetailDblClickPlay()
-                ? Lang.tr("开启") : Lang.tr("关闭")));
-    }
-
     private Component transferLimitBtnText() {
         return Component.literal(Lang.tr("§7限速: ")
                 + (MusicModConfig.isTransferLimitEnabled()
-                        ? "§a" + Lang.tr("开启") : "§8" + Lang.tr("关闭")));
+                        ? Lang.tr("开启") : Lang.tr("关闭")));
     }
 
     private Component pauseBtnText() {
         return Component.literal(Lang.tr("§7打开界面暂停: ")
                 + (MusicModConfig.isPauseSingleplayer()
-                        ? "§a" + Lang.tr("开启") : "§8" + Lang.tr("关闭")));
+                        ? Lang.tr("开启") : Lang.tr("关闭")));
     }
 
     private Component themeBtnText() {
@@ -546,7 +487,7 @@ public class MusicModConfigScreen extends Screen {
 
     private Component queueShowPlayedBtnText() {
         return Component.literal(Lang.tr("队列显示已播放: ") + (MusicModConfig.getQueueShowPlayed()
-                ? Lang.tr("§a显示") : Lang.tr("§7隐藏")));
+                ? Lang.tr("显示") : Lang.tr("隐藏")));
     }
 
     private Component playModeBtnText() {

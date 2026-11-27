@@ -1,6 +1,7 @@
 package com.musicmod.client.tags;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.musicmod.client.ClientFileUploader;
 import com.musicmod.client.gui.BorderedEditBox;
 import com.musicmod.client.gui.CardButton;
 import com.musicmod.client.gui.ThemedMultiLineEditBox;
@@ -23,9 +24,6 @@ import java.util.function.Consumer;
 
 /** 标签编辑器：播放器风格，左侧封面，右侧字段，下方大歌词区。 */
 public class TagEditorScreen extends Screen {
-    private static final int W = 600;
-    private static final int H = 430;
-    private static final int COVER_SIZE = 100;
     private static final ResourceLocation COVER_ID = new ResourceLocation("musicmod", "tag_editor_cover");
 
     private final File file;
@@ -40,6 +38,9 @@ public class TagEditorScreen extends Screen {
     private ResourceLocation coverTexture;
     private int coverW, coverH;
     private int coverX, coverY;
+    private int panelW = 600;
+    private int panelH = 430;
+    private int coverSize = 100;
 
     public TagEditorScreen(File file, TagEditData initial, Consumer<TagEditData> onSaved) {
         this(file, initial, onSaved, null);
@@ -70,33 +71,52 @@ public class TagEditorScreen extends Screen {
         setCover(data.cover);
     }
 
-    private int left() { return (this.width - W) / 2; }
-    private int top() { return (this.height - H) / 2; }
+    private int left() { return (this.width - panelW) / 2; }
+    private int top() { return (this.height - panelH) / 2; }
 
     @Override
     protected void init() {
+        // 按当前 GUI 逻辑分辨率缩放整体面板，避免高 GUI 缩放下固定 600×430 溢出屏幕。
+        int margin = Math.max(6, Math.min(20, Math.min(this.width, this.height) / 40));
+        panelW = Math.min(600, Math.max(220, this.width - margin * 2));
+        panelH = Math.min(430, Math.max(220, this.height - margin * 2));
+        coverSize = Math.max(42, Math.min(100, Math.min(panelW / 5, panelH / 4)));
+
         int x = left();
         int y = top();
-        titleBox = box(x + 144, y + 52, 300, data.title, "曲名");
-        artistBox = box(x + 144, y + 88, 300, data.artist, "作者");
-        albumBox = box(x + 144, y + 124, 300, data.album, "专辑");
+        int fieldX = x + 24 + coverSize + 16;
+        int fieldW = Math.max(80, panelW - (fieldX - x) - 24);
 
-        addRenderableWidget(new CardButton(x + W - 108, y + 8, 92, 20,
+        int row1 = y + 40;
+        int rowGap = Math.max(24, Math.min(36, (panelH - 160) / 3));
+        titleBox = box(fieldX, row1, fieldW, data.title, "曲名");
+        artistBox = box(fieldX, row1 + rowGap, fieldW, data.artist, "作者");
+        albumBox = box(fieldX, row1 + rowGap * 2, fieldW, data.album, "专辑");
+
+        int searchW = Math.min(92, Math.max(60, panelW / 6));
+        addRenderableWidget(new CardButton(x + panelW - searchW - 16, y + 8, searchW, 20,
                 Component.literal(Lang.tr("搜索信息")), b -> openSearch(TagSearchScreen.Mode.META)));
-        addRenderableWidget(new CardButton(x + W - 112, y + 186, 96, 20,
+        int lyricsTop = row1 + rowGap * 2 + 18 + 20;
+        int lyricsBottom = y + panelH - 46;
+        int lyricsH = Math.max(36, lyricsBottom - lyricsTop);
+        int lyricSearchW = Math.min(96, Math.max(64, panelW / 5));
+        addRenderableWidget(new CardButton(x + panelW - lyricSearchW - 16, lyricsTop - 20, lyricSearchW, 16,
                 Component.literal(Lang.tr("搜索歌词")), b -> openSearch(TagSearchScreen.Mode.LYRICS)));
 
-        lyricsBox = new ThemedMultiLineEditBox(this.font, x + 24, y + 212, W - 48, 150,
+        lyricsBox = new ThemedMultiLineEditBox(this.font, x + 24, lyricsTop, panelW - 48, lyricsH,
                 Component.literal(Lang.tr("歌词，可留空")));
         lyricsBox.setCharacterLimit(10_000_000);
         lyricsBox.setValue(data.lyrics);
         addRenderableWidget(lyricsBox);
 
-        addRenderableWidget(new CardButton(x + W - 352, y + H - 30, 100, 20,
+        int bw = Math.min(96, Math.max(56, (panelW - 72) / 3));
+        int by = y + panelH - 28;
+        int bx = x + 24;
+        addRenderableWidget(new CardButton(bx, by, bw, 18,
                 Component.literal(Lang.tr("清除标签")), b -> clearTags()));
-        addRenderableWidget(new CardButton(x + W - 232, y + H - 30, 100, 20,
+        addRenderableWidget(new CardButton(bx + bw + 12, by, bw, 18,
                 Component.literal(Lang.tr("保存")), b -> save()));
-        addRenderableWidget(new CardButton(x + W - 122, y + H - 30, 100, 20,
+        addRenderableWidget(new CardButton(bx + (bw + 12) * 2, by, bw, 18,
                 Component.literal(Lang.tr("取消")), b -> onClose()));
 
         coverX = x + 24;
@@ -133,16 +153,48 @@ public class TagEditorScreen extends Screen {
     void chooseLocalCover() {
         new Thread(() -> {
             File picked = null;
+            Frame owner = null;
+            FileDialog fd = null;
             try {
-                FileDialog fd = new FileDialog((Frame) null, Lang.tr("选择封面图片"), FileDialog.LOAD);
+                owner = new Frame();
+                owner.setType(Frame.Type.UTILITY);
+                owner.setUndecorated(true);
+                owner.setSize(1, 1);
+                owner.setLocation(-10000, -10000);
+                owner.setAlwaysOnTop(true);
+                owner.setVisible(true);
+
+                fd = new FileDialog(owner, Lang.tr("选择封面图片"), FileDialog.LOAD);
+                fd.setAlwaysOnTop(true);
                 fd.setFilenameFilter((dir, name) -> {
                     String n = name.toLowerCase();
                     return n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
                             || n.endsWith(".webp") || n.endsWith(".bmp");
                 });
+                final FileDialog dlg = fd;
+                Thread toFront = new Thread(() -> {
+                    try {
+                        Thread.sleep(300);
+                        java.awt.EventQueue.invokeLater(() -> {
+                            try { dlg.toFront(); dlg.requestFocus(); } catch (Throwable ignored) {}
+                            ClientFileUploader.forceForeground(Lang.tr("选择封面图片"));
+                        });
+                        Thread.sleep(700);
+                        java.awt.EventQueue.invokeLater(() -> {
+                            try { dlg.toFront(); } catch (Throwable ignored) {}
+                            ClientFileUploader.forceForeground(Lang.tr("选择封面图片"));
+                        });
+                    } catch (InterruptedException ignored) {}
+                }, "MusicMod-CoverDialog-ToFront");
+                toFront.setDaemon(true);
+                toFront.start();
+
                 fd.setVisible(true);
                 if (fd.getFile() != null) picked = new File(fd.getDirectory(), fd.getFile());
             } catch (Throwable ignored) {
+            } finally {
+                if (fd != null) fd.dispose();
+                if (owner != null) owner.dispose();
             }
             File f = picked;
             Minecraft.getInstance().execute(() -> {
@@ -269,35 +321,45 @@ public class TagEditorScreen extends Screen {
         renderBackground(g);
         int x = left();
         int y = top();
-        g.fill(x - 1, y - 1, x + W + 1, y + H + 1, Theme.c(0xFF4A4A60));
-        g.fill(x, y, x + W, y + H, Theme.listBg());
-        g.drawCenteredString(font, this.title, this.width / 2, y + 14, Theme.c(0xFFFFFF));
+        g.fill(x - 1, y - 1, x + panelW + 1, y + panelH + 1, Theme.c(0xFF4A4A60));
+        g.fill(x, y, x + panelW, y + panelH, Theme.listBg());
+        if (panelW < 420) {
+            g.drawString(font, this.title, x + 16, y + 14, Theme.c(0xFFFFFF), false);
+        } else {
+            g.drawCenteredString(font, this.title, this.width / 2, y + 14, Theme.c(0xFFFFFF));
+        }
 
         coverX = x + 24;
         coverY = y + 42;
-        g.fill(coverX - 1, coverY - 1, coverX + COVER_SIZE + 1, coverY + COVER_SIZE + 1, Theme.c(0xFF4A4A60));
+        g.fill(coverX - 1, coverY - 1, coverX + coverSize + 1, coverY + coverSize + 1, Theme.c(0xFF4A4A60));
         if (coverTexture != null) {
-            g.blit(coverTexture, coverX, coverY, COVER_SIZE, COVER_SIZE, 0, 0, coverW, coverH, coverW, coverH);
+            g.blit(coverTexture, coverX, coverY, coverSize, coverSize, 0, 0, coverW, coverH, coverW, coverH);
         } else {
-            g.fill(coverX, coverY, coverX + COVER_SIZE, coverY + COVER_SIZE, Theme.c(0xFF202030));
-            g.drawCenteredString(font, Lang.tr("无封面"), coverX + COVER_SIZE / 2, coverY + 46, Theme.c(0xAAAAAA));
+            g.fill(coverX, coverY, coverX + coverSize, coverY + coverSize, Theme.c(0xFF202030));
+            g.drawCenteredString(font, Lang.tr("无封面"), coverX + coverSize / 2, coverY + coverSize / 2 - 4, Theme.c(0xAAAAAA));
         }
 
         // 封面底部内嵌“更改封面”，不再占用封面下方空间
-        boolean hover = mouseX >= coverX && mouseX <= coverX + COVER_SIZE
-                && mouseY >= coverY + COVER_SIZE - 16 && mouseY <= coverY + COVER_SIZE;
-        g.fill(coverX, coverY + COVER_SIZE - 16, coverX + COVER_SIZE, coverY + COVER_SIZE,
+        int changeH = Math.max(12, Math.min(16, coverSize / 4));
+        boolean hover = mouseX >= coverX && mouseX <= coverX + coverSize
+                && mouseY >= coverY + coverSize - changeH && mouseY <= coverY + coverSize;
+        g.fill(coverX, coverY + coverSize - changeH, coverX + coverSize, coverY + coverSize,
                 Theme.c(hover ? 0xB04A4A60 : 0x90333350));
-        g.drawCenteredString(font, Lang.tr("更改封面"), coverX + COVER_SIZE / 2, coverY + COVER_SIZE - 12, Theme.c(0xFFFFFF));
+        g.drawCenteredString(font, Lang.tr("更改封面"), coverX + coverSize / 2,
+                coverY + coverSize - changeH + 3, Theme.c(0xFFFFFF));
 
-        label(g, "曲名", x + 144, y + 42);
-        label(g, "作者", x + 144, y + 78);
-        label(g, "专辑", x + 144, y + 114);
-        label(g, "歌词", x + 24, y + 198);
+        int fieldX = x + 24 + coverSize + 16;
+        int row1 = y + 40;
+        int rowGap = Math.max(24, Math.min(36, (panelH - 160) / 3));
+        label(g, "曲名", fieldX, row1 - 12);
+        label(g, "作者", fieldX, row1 + rowGap - 12);
+        label(g, "专辑", fieldX, row1 + rowGap * 2 - 12);
+        int lyricsTop = row1 + rowGap * 2 + 18 + 20;
+        label(g, "歌词", x + 24, lyricsTop - 12);
         super.render(g, mouseX, mouseY, partial);
 
         if (!status.isEmpty()) {
-            g.drawString(font, font.plainSubstrByWidth(status, W - 48), x + 24, y + H - 46,
+            g.drawString(font, font.plainSubstrByWidth(status, panelW - 48), x + 24, y + panelH - 44,
                     Theme.c(0x88DD88), false);
         }
     }
@@ -308,7 +370,8 @@ public class TagEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (mx >= coverX && mx <= coverX + COVER_SIZE && my >= coverY + COVER_SIZE - 16 && my <= coverY + COVER_SIZE) {
+        int changeH = Math.max(12, Math.min(16, coverSize / 4));
+        if (mx >= coverX && mx <= coverX + coverSize && my >= coverY + coverSize - changeH && my <= coverY + coverSize) {
             openCoverChoice();
             return true;
         }

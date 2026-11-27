@@ -34,6 +34,7 @@ public class MusicModConfig {
         public final ForgeConfigSpec.BooleanValue worldLyrics;
         public final ForgeConfigSpec.BooleanValue worldLyricsFollow;
         public final ForgeConfigSpec.BooleanValue caveEcho;
+        public final ForgeConfigSpec.BooleanValue netherEndEcho;
         public final ForgeConfigSpec.BooleanValue underwaterSound;
         public final ForgeConfigSpec.BooleanValue showHudNoteIcon;
         public final ForgeConfigSpec.BooleanValue queueShowPlayed;
@@ -89,6 +90,9 @@ public class MusicModConfig {
             caveEcho = builder
                     .comment("在矿洞中播放歌曲时是否增加回音效果（默认 true，只影响本机）")
                     .define("caveEcho", true);
+            netherEndEcho = builder
+                    .comment("在下界/末地播放歌曲时是否增加回音效果（默认 true，只影响本机）")
+                    .define("netherEndEcho", true);
             underwaterSound = builder
                     .comment("玩家在水下时是否对歌曲应用水下音效（默认 true，只影响本机）")
                     .define("underwaterSound", true);
@@ -355,11 +359,8 @@ public class MusicModConfig {
         }
     }
 
-    /** 获取界面风格（默认 PLAYER） */
+    /** 获取界面风格（精简模式已删除，固定播放器风格） */
     public static UiStyle getUiStyle() {
-        try {
-            if (CLIENT_SPEC.isLoaded()) return CLIENT.uiStyle.get();
-        } catch (Exception ignored) {}
         return UiStyle.PLAYER;
     }
 
@@ -531,6 +532,23 @@ public class MusicModConfig {
             if (CLIENT_SPEC.isLoaded()) CLIENT.caveEcho.set(value);
         } catch (Exception e) {
             MusicMod.LOGGER.warn("Failed to set caveEcho config", e);
+        }
+    }
+
+    /** 下界/末地播放歌曲时是否增加回音（默认 true） */
+    public static boolean isNetherEndEchoEnabled() {
+        try {
+            if (CLIENT_SPEC.isLoaded()) return CLIENT.netherEndEcho.get();
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    /** 设置下界/末地回音开关 */
+    public static void setNetherEndEchoEnabled(boolean value) {
+        try {
+            if (CLIENT_SPEC.isLoaded()) CLIENT.netherEndEcho.set(value);
+        } catch (Exception e) {
+            MusicMod.LOGGER.warn("Failed to set netherEndEcho config", e);
         }
     }
 

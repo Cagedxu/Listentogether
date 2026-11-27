@@ -8,14 +8,18 @@ final class UnderwaterAudioFilter {
     private static final float CUTOFF_HZ = 600.0F;
     private static final float Q = 0.707F;
     private static final float RAMP_SECONDS = 0.03F;
+    private static final float UNDERWATER_GAIN = 1.55F;
+    private static final float CAVE_GAIN = 1.30F;
 
     private boolean enabled;
     private int channels;
     private float sampleRate;
     private volatile boolean target;
     private volatile boolean caveTarget;
+    private volatile boolean dimensionTarget;
     private float current;
     private float caveCurrent;
+    private float dimensionCurrent;
 
     private final Biquad[][] filters = new Biquad[2][2];
     private float[] delayLeft = new float[0];
@@ -40,6 +44,7 @@ final class UnderwaterAudioFilter {
         this.channels = channels;
         this.current = 0.0F;
         this.caveCurrent = 0.0F;
+        this.dimensionCurrent = 0.0F;
         for (Biquad[] pair : filters) {
             for (Biquad b : pair) b.reset();
         }
@@ -68,9 +73,14 @@ final class UnderwaterAudioFilter {
         this.caveTarget = cave;
     }
 
+    void setDimensionEcho(boolean echo) {
+        this.dimensionTarget = echo;
+    }
+
     synchronized void reset() {
         current = 0.0F;
         caveCurrent = 0.0F;
+        dimensionCurrent = 0.0F;
         for (Biquad[] pair : filters) {
             for (Biquad b : pair) b.reset();
         }
@@ -89,9 +99,11 @@ final class UnderwaterAudioFilter {
         int frameSize = channels * 2;
         int end = offset + (length - length % frameSize);
         if (end <= offset) return;
-        if (!target && !caveTarget && current < 0.0005F && caveCurrent < 0.0005F) {
+        if (!target && !caveTarget && !dimensionTarget && current < 0.0005F
+                && caveCurrent < 0.0005F && dimensionCurrent < 0.0005F) {
             current = 0.0F;
             caveCurrent = 0.0F;
+            dimensionCurrent = 0.0F;
             return;
         }
 
@@ -104,6 +116,10 @@ final class UnderwaterAudioFilter {
             caveCurrent += (caveTarget ? 1.0F - caveCurrent : -caveCurrent) * caveRamp;
             if (caveCurrent < 0.0F) caveCurrent = 0.0F;
             if (caveCurrent > 1.0F) caveCurrent = 1.0F;
+            dimensionCurrent += (dimensionTarget ? 1.0F - dimensionCurrent : -dimensionCurrent) * caveRamp;
+            if (dimensionCurrent < 0.0F) dimensionCurrent = 0.0F;
+            if (dimensionCurrent > 1.0F) dimensionCurrent = 1.0F;
+            float echoMix = Math.max(caveCurrent, dimensionCurrent);
             float wet = current;
 
             for (int ch = 0; ch < channels; ch++) {
@@ -127,7 +143,7 @@ final class UnderwaterAudioFilter {
                     echoed = filtered * 0.72F + delayed * 0.28F;
                 }
                 float out = dry + (echoed - dry) * wet;
-                if (caveCurrent > 0.0005F) {
+                if (echoMix > 0.0005F) {
                     float caveOut;
                     if (ch == 0) {
                         int pos = cavePosLeft;
@@ -142,8 +158,10 @@ final class UnderwaterAudioFilter {
                         if (++cavePosRight >= caveDelayRight.length) cavePosRight = 0;
                         caveOut = out * 0.56F + delayed * 0.44F;
                     }
-                    out = out + (caveOut - out) * caveCurrent;
+                    out = out + (caveOut - out) * echoMix;
                 }
+                // 低通会明显削弱响度，这里补回一部分增益，避免水下听起来比岸上小很多。
+                out *= 1.0F + (UNDERWATER_GAIN - 1.0F) * wet + (CAVE_GAIN - 1.0F) * echoMix;
                 int s = (int) (out * 32767.0F);
                 if (s > 32767) s = 32767;
                 if (s < -32768) s = -32768;

@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /** 双源在线标签搜索：网易云优先，MusicBrainz + LRCLIB 回退。 */
@@ -38,8 +39,37 @@ public final class OnlineTagService {
             all.addAll(qq.join());
             all.addAll(kg.join());
             all.addAll(mb.join());
+            all.sort((a, b) -> Integer.compare(relevanceScore(b, query), relevanceScore(a, query)));
             return all;
         });
+    }
+
+
+    /** 按歌名/歌手与搜索词的匹配程度排序，避免聚合后被某个源的原始顺序带偏。 */
+    private static int relevanceScore(TagCandidate c, String query) {
+        String q = normalize(query);
+        if (q.isEmpty() || c == null) return 0;
+        String title = normalize(c.title);
+        String artist = normalize(c.artist);
+        int score = 0;
+        if (title.equals(q)) score += 1200;
+        else if (title.startsWith(q)) score += 900;
+        else if (title.contains(q)) score += 700;
+        if (artist.equals(q)) score += 800;
+        else if (artist.startsWith(q)) score += 600;
+        else if (artist.contains(q)) score += 450;
+        for (String token : q.split(" ")) {
+            if (token.isEmpty()) continue;
+            if (title.contains(token)) score += 90;
+            if (artist.contains(token)) score += 60;
+        }
+        if ("netease".equals(c.source)) score += 5;
+        return score;
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return "";
+        return s.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
     }
 
     private static List<TagCandidate> safe(ThrowingSupplier<List<TagCandidate>> supplier) {
